@@ -783,6 +783,80 @@
     } finally { sortingPlaces = false; $("placeHint").textContent = ""; fillPlaces(); }
   }
 
+  // ---------- улицы населённых пунктов (OpenStreetMap, загружаются один раз и запоминаются) ----------
+  const OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+  let streetCache = {};
+  try { streetCache = JSON.parse(store.get("streetCache") || "{}"); } catch(e){ streetCache = {}; }
+  const streetLoading = {};
+  function shortStreet(n){
+    n = n.replace(/\s+/g, " ").trim();
+    const map = [["улица","ул."],["переулок","пер."],["площадь","пл."],["проспект","пр-т"],["бульвар","бул."],["тупик","туп."],["шоссе","ш."],["проезд","проезд"]];
+    for (const [full, sh] of map){
+      const re1 = new RegExp("^" + full + "\\s+(.+)$", "i"), re2 = new RegExp("^(.+)\\s+" + full + "$", "i");
+      let m = n.match(re1) || n.match(re2);
+      if (m) return sh + " " + m[1];
+    }
+    return n;
+  }
+  function streetRadius(e){
+    if (e.type === "г.") return e.name === "Майкоп" ? 9000 : 4000;
+    if (e.type === "пгт" || e.type === "ст.") return 3500;
+    return 2000;
+  }
+  async function loadStreets(pv){
+    const e = CAT_BY_VALUE.get(pv);
+    if (!e) return null;
+    if (streetCache[pv]) return streetCache[pv];
+    if (streetLoading[pv]) return streetLoading[pv];
+    streetLoading[pv] = (async () => {
+      let c = placeCoords[pv];
+      if (!c && el.geokey.value.trim()){
+        try { const g = await geocode(e.query); if (g){ c = g.coords; placeCoords[pv] = c; store.set("placeCoords", JSON.stringify(placeCoords)); } } catch(err){}
+      }
+      if (!c) return null;
+      const q = '[out:json][timeout:25];way(around:' + streetRadius(e) + ',' + c[0] + ',' + c[1] + ')["highway"]["name"];out tags;';
+      for (const url of OVERPASS){
+        try {
+          const resp = await fetch(url + "?data=" + encodeURIComponent(q));
+          if (!resp.ok) continue;
+          const d = await resp.json();
+          const names = [...new Set((d.elements || []).map(x => x.tags && x.tags.name).filter(Boolean).map(shortStreet))]
+            .sort((a, b) => a.replace(/^\S+\.\s/, "").localeCompare(b.replace(/^\S+\.\s/, ""), "ru"));
+          streetCache[pv] = names;
+          try { store.set("streetCache", JSON.stringify(streetCache)); } catch(err){}
+          return names;
+        } catch(err){}
+      }
+      return null;
+    })();
+    const res = await streetLoading[pv];
+    delete streetLoading[pv];
+    return res;
+  }
+  function histByPlace(){ try { return JSON.parse(store.get("histStreetsByPlace") || "{}"); } catch(e){ return {}; } }
+  const hashStr = x => { let h = 0; for (const ch of x) h = (h * 31 + ch.charCodeAt(0)) | 0; return "dls" + (h >>> 0).toString(36); };
+  async function bindStreetList(r, inp){
+    const pv = (r.place || "").trim();
+    if (!pv){ inp.setAttribute("list", "dlStreets"); return; }
+    const id = hashStr(pv);
+    let dl = document.getElementById(id);
+    if (!dl){ dl = document.createElement("datalist"); dl.id = id; document.body.appendChild(dl); }
+    inp.setAttribute("list", id);
+    const fill = osm => {
+      const seen = new Set(); dl.innerHTML = "";
+      (histByPlace()[pv] || []).concat(osm || []).forEach(v => {
+        if (seen.has(v)) return; seen.add(v);
+        const o = document.createElement("option"); o.value = v; dl.appendChild(o);
+      });
+    };
+    fill(streetCache[pv]);
+    if (!streetCache[pv] && CAT_BY_VALUE.has(pv)){
+      inp.placeholder = "Улица (загружаю список…)";
+      const list = await loadStreets(pv);
+      if ((r.place || "").trim() === pv){ inp.placeholder = list && list.length ? "Улица — выберите" : "Улица"; if (list) fill(list); }
+    } else if (streetCache[pv] && streetCache[pv].length) inp.placeholder = "Улица — выберите";
+  }
+
   // ---------- таблица адресов ----------
   const FIELDS = [
     ["region", "Регион",            "f-region"],
@@ -819,14 +893,17 @@
         inp.placeholder = ph; inp.value = r[f] || ""; inp.autocomplete = "off";
         if (f === "region") inp.setAttribute("list", "dlRegions");
         if (f === "place") inp.setAttribute("list", "dlPlaces");
-        if (f === "street") inp.setAttribute("list", "dlStreets");
         if (f === "phone"){ inp.type = "tel"; inp.inputMode = "tel"; }
-        inp.addEventListener("input", () => { r[f] = inp.value; saveRows(); });
+        inp.addEventListener("input", () => {
+          r[f] = inp.value; saveRows();
+          if (f === "place"){ clearTimeout(inp._t); inp._t = setTimeout(() => bindStreetList(r, d.querySelector(".f-street")), 400); }
+        });
       }
       inp.className = cls;
       inp.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); nextRow(idx); } });
       d.appendChild(inp);
     });
+    bindStreetList(r, d.querySelector(".f-street"));
     const del = document.createElement("button");
     del.type = "button"; del.className = "del"; del.textContent = "✕"; del.title = "Удалить строку";
     del.addEventListener("click", () => { rows.splice(idx, 1); if (!rows.length) rows.push(blankRow()); renderRows(); saveRows(); });
@@ -884,6 +961,13 @@
     };
     add("histPlaces", rows.map(r => r.place), 60);
     add("histStreets", rows.map(r => r.street), 300);
+    const hb = histByPlace();
+    rows.forEach(r => {
+      const pv = (r.place || "").trim(), st = (r.street || "").trim();
+      if (!pv || !st) return;
+      const arr = (hb[pv] || []).filter(x => x !== st); arr.unshift(st); hb[pv] = arr.slice(0, 80);
+    });
+    try { store.set("histStreetsByPlace", JSON.stringify(hb)); } catch(e){}
     fillStreets(); fillPlaces();
   }
   function rowLabel(r){
@@ -921,9 +1005,6 @@
       '<button class="btn" onclick="window.print()">Распечатать</button>' +
       '<h1>Заявки на выезд</h1>' +
       '<div class="top"><span>Дата: ____________________</span><span>Диспетчер: ______________________________</span></div>' +
-      '<div class="rules"><b>Как заполнять:</b> пишите разборчиво, печатными буквами. Населённый пункт — с типом (пос., ст., х., а.). ' +
-      '<b>Время</b> — только если заказ срочный или к определённому часу (например: 8:00, 9:30, до 11:00). ' +
-      'Телефон — полностью, 11 цифр. В комментарии — всё важное для рабочего (стучать громко, собака во дворе и т.п.).</div>' +
       '<table><colgroup><col style="width:7mm"><col style="width:20mm"><col style="width:42mm"><col style="width:42mm"><col style="width:20mm"><col style="width:20mm"><col style="width:36mm"><col></colgroup>' +
       '<tr><th>№</th><th>Регион</th><th>Населённый пункт</th><th>Улица</th><th>Дом, кв.</th><th>Время</th><th>Телефон</th><th>Комментарий</th></tr>' +
       rowsHtml + '</table></body></html>');
