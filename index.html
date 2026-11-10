@@ -73,7 +73,7 @@
       <ol>
         <li>Откройте <b>developer.tech.yandex.ru</b> и войдите с вашим Яндекс ID.</li>
         <li>Нажмите «Подключить API» и подключите <b>два продукта</b>: <b>«JavaScript API»</b> (карта и маршруты) и <b>«HTTP Геокодер»</b> (поиск адресов). У каждого будет свой ключ.</li>
-        <li>Ограничение по HTTP Referer в настройках ключей <b>не ставьте</b>, иначе страница, открытая с компьютера, не сможет ими пользоваться.</li>
+        <li>У ключа «JavaScript API» в поле «Ограничение по HTTP Referer» укажите адрес этого сайта без https:// (например, <b>kalimandmitriy-droid.github.io</b>).</li>
         <li>Вставьте оба ключа в поля ниже и нажмите «Сохранить». Ключи хранятся только в этом браузере и начинают работать примерно через 15 минут после получения.</li>
       </ol>
     </details>
@@ -122,6 +122,7 @@
   <section id="problems" hidden></section>
   <section id="map" hidden></section>
   <section id="results"></section>
+  <p class="note">Поиск адресов и карта — Яндекс. Расстояния по дорогам — сервис OSRM по данным © участники OpenStreetMap.</p>
 </main>
 
 <script>
@@ -140,7 +141,7 @@
     {preset:"pink",     hex:"#F371D1"}
   ];
   const BOUNDS = [[43.6, 38.4], [45.4, 41.3]];   // Адыгея и окрестности — подсказка геокодеру
-  const ROAD_MATRIX_LIMIT = 12;                   // до стольких адресов у одного рабочего считаем все расстояния по дорогам
+  const OSRM = "https://router.project-osrm.org"; // расчёт по дорогам: OSRM, данные © участники OpenStreetMap
   const ROAD_FACTOR = 1.3;                        // запасной коэффициент «прямая → дорога»
   const GOOD_PRECISION = ["exact", "number", "near"];
 
@@ -254,30 +255,53 @@
     };
   }
 
-  // ---------- расстояния по дорогам ----------
-  const legCache = new Map();
+  // ---------- расстояния по дорогам (OSRM, данные OpenStreetMap) ----------
   let roadFailures = 0;
-  const ck = c => c[0].toFixed(5) + "," + c[1].toFixed(5);
-  async function roadLeg(a, b){
-    if (ck(a) === ck(b)) return { m:0, s:0, road:true };
-    const k1 = ck(a) + "|" + ck(b), k2 = ck(b) + "|" + ck(a);
-    if (legCache.has(k1)) return legCache.get(k1);
-    if (legCache.has(k2)) return legCache.get(k2);
-    let v;
-    try {
-      const r = await ymaps.route([a, b], { mapStateAutoApply:false });
-      v = { m:r.getLength(), s:r.getTime(), road:true };
-    } catch(e) {
-      roadFailures++;
-      const m = haversineM(a, b) * ROAD_FACTOR;
-      v = { m, s:m / (55/3.6), road:false };
-    }
-    legCache.set(k1, v);
-    return v;
-  }
+  const lonlat = c => c[1].toFixed(6) + "," + c[0].toFixed(6);
   function approxLeg(a, b){
     const m = haversineM(a, b) * ROAD_FACTOR;
     return { m, s:m / (55/3.6), road:false };
+  }
+  async function osrmGet(path){
+    const resp = await fetch(OSRM + path);
+    if (!resp.ok) throw new Error("OSRM " + resp.status);
+    const d = await resp.json();
+    if (d.code !== "Ok") throw new Error("OSRM " + d.code);
+    return d;
+  }
+  // матрица расстояний по дорогам одним запросом
+  async function roadMatrix(nodes){
+    const n = nodes.length;
+    const D = nodes.map((a, i) => nodes.map((b, j) => i === j ? 0 : approxLeg(a, b).m));
+    let ok = false;
+    if (n <= 100){
+      try {
+        const d = await osrmGet("/table/v1/driving/" + nodes.map(lonlat).join(";") + "?annotations=distance");
+        for (let i = 0; i < n; i++) for (let j = 0; j < n; j++){
+          const v = d.distances[i][j];
+          if (v !== null && v !== undefined) D[i][j] = v;
+        }
+        ok = true;
+      } catch(e){ roadFailures++; }
+    }
+    return { D, ok };
+  }
+  // итоговый маршрут: километры по отрезкам и линия для карты
+  async function roadRoute(seq){
+    try {
+      const d = await osrmGet("/route/v1/driving/" + seq.map(lonlat).join(";") + "?overview=full&geometries=geojson");
+      const r = d.routes[0];
+      return {
+        legs: r.legs.map(l => ({ m:l.distance, s:l.duration, road:true })),
+        geometry: r.geometry.coordinates.map(p => [p[1], p[0]]),
+        ok: true
+      };
+    } catch(e){
+      roadFailures++;
+      const legs = [];
+      for (let t = 0; t < seq.length - 1; t++) legs.push(approxLeg(seq[t], seq[t+1]));
+      return { legs, geometry: seq, ok:false };
+    }
   }
 
   async function runPool(tasks, n, onProgress){
@@ -368,24 +392,11 @@
   let names = [];
   let map = null;
 
-  async function computeGroup(w, onProgress){
+  async function computeGroup(w){
     const members = groups[w];
-    if (!members.length){ routes[w] = { order:[], legs:[], m:0, s:0, approx:false, back:null }; return; }
+    if (!members.length){ routes[w] = { order:[], legs:[], back:null, m:0, s:0, approx:false, geometry:null }; return; }
     const nodes = [startPt.coords].concat(members.map(i => points[i].coords));
-    const n = nodes.length;
-    const D = Array.from({length:n}, () => new Array(n).fill(0));
-    const full = members.length <= ROAD_MATRIX_LIMIT;
-    const tasks = [];
-    for (let i = 0; i < n; i++){
-      for (let j = i + 1; j < n; j++){
-        if (full || i === 0){
-          tasks.push(async () => { const v = await roadLeg(nodes[i], nodes[j]); D[i][j] = D[j][i] = v.m; });
-        } else {
-          const v = approxLeg(nodes[i], nodes[j]); D[i][j] = D[j][i] = v.m;
-        }
-      }
-    }
-    await runPool(tasks, 4, onProgress);
+    const { D, ok } = await roadMatrix(nodes);
     const ret = el.ret.checked;
     let ord;
     if (el.mode.value === "dist"){
@@ -393,17 +404,18 @@
     } else {
       ord = optimizeOrder(D, ret);
     }
-    // итоговые отрезки — всегда по дорогам
-    const legs = [];
-    for (let t = 0; t < ord.length - 1; t++) legs.push(await roadLeg(nodes[ord[t]], nodes[ord[t+1]]));
-    const back = ret && ord.length > 1 ? await roadLeg(nodes[ord[ord.length-1]], nodes[0]) : null;
-    const all = back ? legs.concat([back]) : legs;
+    const seq = ord.map(k => nodes[k]);
+    if (ret) seq.push(nodes[0]);
+    const rr = await roadRoute(seq);
+    const legs = rr.legs;
     routes[w] = {
       order: ord.slice(1).map(k => members[k - 1]),
-      legs, back,
-      m: all.reduce((a, l) => a + l.m, 0),
-      s: all.reduce((a, l) => a + l.s, 0),
-      approx: all.some(l => !l.road) || !full
+      legs: ret ? legs.slice(0, -1) : legs,
+      back: ret ? legs[legs.length - 1] : null,
+      m: legs.reduce((a, l) => a + l.m, 0),
+      s: legs.reduce((a, l) => a + l.s, 0),
+      approx: !ok || !rr.ok,
+      geometry: rr.geometry
     };
   }
 
@@ -464,7 +476,7 @@
       if (r.order.length){
         h += '<div class="actions"><a class="btn" target="_blank" rel="noopener" href="' + yandexLink(w) + '">Открыть в Яндекс Картах</a>' +
              '<button type="button" class="copy">Скопировать для мессенджера</button></div>';
-        if (r.approx) h += '<div class="note">Часть расстояний оценена приблизительно (много адресов или сбой расчёта по дорогам).</div>';
+        if (r.approx) h += '<div class="note">Расстояния приблизительные: сервис расчёта по дорогам не ответил. Нажмите «Построить маршруты» ещё раз.</div>';
       }
       card.innerHTML = h;
       card.querySelector(".wname").addEventListener("input", e => { names[w] = e.target.value || ("Рабочий " + (w + 1)); store.set("names", JSON.stringify(names)); });
@@ -490,16 +502,9 @@
     routes.forEach((r, w) => {
       const col = COLORS[w % COLORS.length];
       if (!r.order.length) return;
-      const pts = [startPt.coords].concat(r.order.map(i => points[i].coords));
-      if (el.ret.checked) pts.push(startPt.coords);
-      try {
-        const mr = new ymaps.multiRouter.MultiRoute(
-          { referencePoints:pts, params:{ results:1 } },
-          { wayPointVisible:false, viaPointVisible:false, pinVisible:false, boundsAutoApply:false,
-            routeActiveStrokeColor:col.hex, routeActiveStrokeWidth:4, routeStrokeColor:col.hex }
-        );
-        map.geoObjects.add(mr);
-      } catch(e){}
+      if (r.geometry && r.geometry.length > 1){
+        map.geoObjects.add(new ymaps.Polyline(r.geometry, {}, { strokeColor:col.hex, strokeWidth:4, strokeOpacity:0.85 }));
+      }
       r.order.forEach((i, t) => {
         map.geoObjects.add(new ymaps.Placemark(points[i].coords,
           { iconContent:String(t + 1), balloonContentHeader:esc(names[w]) + ", №" + (t + 1), balloonContentBody:esc(points[i].input) + "<br><small>" + esc(points[i].found) + "</small>" },
@@ -578,11 +583,12 @@
 
       routes = [];
       for (let w = 0; w < groups.length; w++){
-        await computeGroup(w, (d, n) => setStatus("Считаю расстояния по дорогам — " + names[w] + ": " + d + " из " + n));
+        setStatus("Считаю расстояния по дорогам — " + names[w] + "…");
+        await computeGroup(w);
       }
       renderCards(); renderMap();
       setStatus("Готово. Найдено адресов: " + points.length + " из " + lines.length + "." +
-        (roadFailures ? " Часть расстояний (" + roadFailures + ") посчитана приблизительно." : "") +
+        (roadFailures ? " Сервис расчёта по дорогам ответил не на все запросы — часть расстояний приблизительная, попробуйте построить ещё раз." : "") +
         (k > 1 ? " Адрес можно передать другому рабочему через список под ним." : ""));
     } catch(e){
       setStatus(e.message || String(e), true);
