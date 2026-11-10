@@ -34,6 +34,25 @@
   details ol{margin:8px 0 0;padding-left:20px;color:var(--ink)}
   .keyrow{display:flex;gap:8px;align-items:flex-end}
   .keyrow label{flex:1;margin:0}
+  .addr-head{font-weight:600;font-size:13px;color:var(--muted);margin-bottom:2px}
+  .hint{font-size:12.5px;color:var(--muted);margin-bottom:8px}
+  .arow{display:grid;grid-template-columns:26px 1.1fr 1.5fr 1fr .9fr 1.5fr 34px;gap:6px;align-items:center;margin-bottom:6px}
+  .arow input{margin:0;padding:8px 9px}
+  .arow .num{color:var(--muted);font-size:12.5px;text-align:right}
+  .arow .del{padding:6px 0;border-color:transparent;color:var(--muted);background:transparent}
+  .arow .del:hover{color:var(--bad)}
+  .arow input.bad{border-color:var(--bad);background:#fff5f5}
+  .arow input.f-time.ok{border-color:#e89a2c;background:#fff8ee;font-weight:600}
+  #bulkBox{margin-bottom:14px}
+  #bulkBox textarea{min-height:140px;margin-bottom:8px}
+  .tbadge{display:inline-block;background:#fde7e7;color:#b3261e;font-weight:700;font-size:12.5px;padding:1px 8px;border-radius:10px;margin-right:6px;vertical-align:1px}
+  .tel{display:inline-block;font-size:13.5px;font-weight:600;color:var(--accent);text-decoration:none;margin-top:3px}
+  .warn{color:var(--warn);font-size:13px;font-weight:600;margin:2px 0 8px}
+  @media (max-width:700px){
+    .arow{grid-template-columns:22px 1fr 1fr 30px;grid-template-areas:"n p p d" ". s s ." ". ph t ." ". c c .";padding-bottom:8px;border-bottom:1px dashed var(--line)}
+    .arow .num{grid-area:n} .arow .f-place{grid-area:p} .arow .f-street{grid-area:s} .arow .f-phone{grid-area:ph}
+    .arow .f-time{grid-area:t} .arow .f-note{grid-area:c} .arow .del{grid-area:d}
+  }
   #map{height:460px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#e9ece6}
   #problems{background:var(--warn-bg);border:1px solid #f0d3a6;border-radius:12px;padding:12px 14px}
   #problems h2{margin:0 0 6px;font-size:16px;color:var(--warn)}
@@ -94,9 +113,19 @@
     <label>Точка старта (откуда выезжают рабочие)
       <input id="start" value="Майкоп, Республика Адыгея">
     </label>
-    <label>Адреса — каждый с новой строки
-      <textarea id="addrs" placeholder="ст. Ханская, ул. Ленина, 10 | 8 918 123-45-67, стучать пока не откроют&#10;пос. Тульский, ул. Мира, 5 | после 14:00&#10;ст. Гиагинская, ул. Красная, 120&#10;...&#10;&#10;Комментарий пишите после знака | (вертикальная черта) или //&#10;Телефон можно писать и просто в конце строки — программа его отделит сама.&#10;Можно и координатами: 44.6091, 40.1006"></textarea>
-    </label>
+    <div class="addr-head">Адреса <span id="rowCount"></span></div>
+    <div class="hint">Enter — переход на новую строку, посёлок подставится сам. Время (8-00, 9-30, до 11-00) ставит заказ первым в маршруте.</div>
+    <div id="rows"></div>
+    <datalist id="dlPlaces"></datalist><datalist id="dlStreets"></datalist>
+    <div class="row" style="margin:6px 0 14px">
+      <button type="button" id="addRow">+ Добавить адрес</button>
+      <button type="button" id="bulkBtn">Вставить списком</button>
+      <button type="button" id="clearRows">Очистить всё</button>
+    </div>
+    <div id="bulkBox" hidden>
+      <textarea id="bulk" placeholder="Вставьте текст — по одному адресу в строке (например, распознанный с фото). Телефоны и время программа найдёт сама, текст после знака | станет комментарием.&#10;&#10;п. Краснооктябрьский, ул. Советская, 49 | +7 928 472-77-80 до 11-00 стучать громко"></textarea>
+      <button type="button" id="bulkAdd" class="primary">Добавить в таблицу</button>
+    </div>
     <div class="row">
       <label class="narrow">Рабочих
         <input id="workers" type="number" min="1" max="8" value="2">
@@ -157,22 +186,21 @@
 
   const $ = id => document.getElementById(id);
   const el = {
-    key:$("apikey"), geokey:$("geokey"), saveKey:$("saveKey"), start:$("start"), addrs:$("addrs"),
+    key:$("apikey"), geokey:$("geokey"), saveKey:$("saveKey"), start:$("start"),
     workers:$("workers"), split:$("split"), mode:$("mode"), ret:$("ret"),
     go:$("go"), sample:$("sample"), print:$("print"), status:$("status"),
     problems:$("problems"), map:$("map"), results:$("results"), keyHelp:$("keyHelp")
   };
 
   // восстановить прошлые значения
-  ["start","addrs","workers","split","mode"].forEach(k => { const v = store.get(k); if (v !== null) el[k].value = v; });
+  ["start","workers","split","mode"].forEach(k => { const v = store.get(k); if (v !== null) el[k].value = v; });
   el.ret.checked = store.get("ret") === "1";
   const savedKey = store.get("key");
   const savedGeo = store.get("geokey");
   if (savedKey) el.key.value = savedKey;
   if (savedGeo) el.geokey.value = savedGeo;
   if (!savedKey || !savedGeo) el.keyHelp.open = true;
-  ["start","addrs","workers","split","mode"].forEach(k => el[k].addEventListener("change", () => store.set(k, el[k].value)));
-  el.addrs.addEventListener("input", () => store.set("addrs", el.addrs.value));
+  ["start","workers","split","mode"].forEach(k => el[k].addEventListener("change", () => store.set(k, el[k].value)));
   el.ret.addEventListener("change", () => store.set("ret", el.ret.checked ? "1" : "0"));
 
   function setStatus(msg, isErr){ el.status.textContent = msg || ""; el.status.className = isErr ? "err" : ""; }
@@ -182,18 +210,6 @@
     store.set("key", k); store.set("geokey", g);
     if (window.ymaps && loadedKey && loadedKey !== k) setStatus("Ключи сохранены. Обновите страницу (F5), чтобы новый ключ карты начал действовать.");
     else setStatus("Ключи сохранены.");
-  });
-
-  el.sample.addEventListener("click", () => {
-    el.addrs.value = [
-      "пос. Тульский",
-      "ст. Ханская",
-      "ст. Гиагинская",
-      "пос. Каменномостский",
-      "ст. Абадзехская",
-      "ст. Кужорская"
-    ].join("\n");
-    store.set("addrs", el.addrs.value);
   });
 
   el.print.addEventListener("click", () => window.print());
@@ -390,10 +406,12 @@
     if (ret && order.length > 1) c += D[order[order.length-1]][0];
     return c;
   }
-  function optimizeOrder(D, ret){
-    const n = D.length;               // узел 0 — старт
-    const left = new Set(); for (let i = 1; i < n; i++) left.add(i);
-    const order = [0];
+  function optimizeOrder(D, ret, fixed){
+    fixed = fixed || [];
+    const n = D.length;               // узел 0 — старт; fixed — заказы со временем, идут первыми в заданном порядке
+    const left = new Set(); for (let i = 1; i < n; i++) if (!fixed.includes(i)) left.add(i);
+    const order = [0].concat(fixed);
+    const F = order.length;           // с этой позиции порядок можно менять
     while (left.size){
       const cur = order[order.length - 1];
       let best = -1, bd = Infinity;
@@ -404,7 +422,7 @@
     let improved = true, guard = 0;
     while (improved && guard++ < 200){
       improved = false;
-      for (let i = 1; i < n - 1; i++){
+      for (let i = F; i < n - 1; i++){
         for (let j = i + 1; j < n; j++){
           const cand = order.slice(0, i).concat(order.slice(i, j + 1).reverse(), order.slice(j + 1));
           if (pathCost(cand, D, ret) + 1e-6 < pathCost(order, D, ret)){ order.splice(0, n, ...cand); improved = true; }
@@ -429,10 +447,14 @@
     const { D, ok } = await roadMatrix(nodes);
     const ret = el.ret.checked;
     let ord;
+    // заказы со временем — первыми, по возрастанию времени
+    const timed = members.map((m, k) => ({ k:k + 1, t:points[m].timeMin }))
+      .filter(o => o.t !== null && o.t !== undefined)
+      .sort((a, b) => a.t - b.t || D[0][a.k] - D[0][b.k]).map(o => o.k);
     if (el.mode.value === "dist"){
-      ord = [0].concat(members.map((_, k) => k + 1).sort((a, b) => D[0][a] - D[0][b]));
+      ord = [0].concat(timed, members.map((_, k) => k + 1).filter(k => !timed.includes(k)).sort((a, b) => D[0][a] - D[0][b]));
     } else {
-      ord = optimizeOrder(D, ret);
+      ord = optimizeOrder(D, ret, timed);
     }
     const seq = ord.map(k => nodes[k]);
     if (ret) seq.push(nodes[0]);
@@ -464,7 +486,13 @@
   function messageText(w){
     const r = routes[w];
     const lines = [names[w] + " — адресов: " + r.order.length + ", около " + km(r.m) + " (" + dur(r.s) + " в пути)"];
-    r.order.forEach((i, t) => lines.push((t + 1) + ". " + points[i].input + (points[i].note ? "\n   ❗ " + points[i].note : "")));
+    r.order.forEach((i, t) => {
+      const p = points[i];
+      let line = (t + 1) + ". " + (p.timeLabel ? "⏰ " + p.timeLabel + " — " : "") + p.input;
+      if (p.phone) line += "\n   📞 " + p.phone;
+      if (p.note) line += "\n   ❗ " + p.note;
+      lines.push(line);
+    });
     if (el.ret.checked) lines.push("Затем — обратно: " + el.start.value.trim());
     lines.push("Маршрут: " + yandexLink(w));
     return lines.join("\n");
@@ -488,11 +516,17 @@
       const card = document.createElement("div");
       card.className = "card"; card.style.setProperty("--c", col.hex);
       let h = '<div class="card-head"><input class="wname" value="' + esc(names[w]) + '" aria-label="Имя рабочего" placeholder="Имя рабочего"><span class="pen">✎ имя</span></div>';
-      h += '<div class="sum">Адресов: ' + r.order.length + (r.order.length ? " · " + km(r.m) + " · ~" + dur(r.s) + " в пути" : "") + "</div><ol>";
+      const tms = r.order.map(i => points[i].timeMin).filter(x => x !== null && x !== undefined);
+      h += '<div class="sum">Адресов: ' + r.order.length + (r.order.length ? " · " + km(r.m) + " · ~" + dur(r.s) + " в пути" : "") +
+           (tms.length ? " · ⏰ срочных: " + tms.length : "") + "</div>";
+      if (tms.some((x, i) => tms.indexOf(x) !== i)) h += '<div class="warn">⚠ Несколько заказов на одно время — передайте лишние другому рабочему.</div>';
+      h += "<ol>";
       r.order.forEach((i, t) => {
         const p = points[i], leg = r.legs[t];
         const flag = GOOD_PRECISION.includes(p.precision) ? "" : ' <span class="flag" title="Найден неточно">⚠</span>';
-        h += '<li><span class="addr">' + esc(p.input) + "</span>" + flag +
+        h += "<li>" + (p.timeLabel ? '<span class="tbadge">⏰ ' + esc(p.timeLabel) + "</span>" : "") +
+             '<span class="addr">' + esc(p.input) + "</span>" + flag +
+             (p.phone ? '<br><span class="tel">📞 ' + noteHtml(p.phone) + "</span>" : "") +
              (p.note ? '<span class="cmt">❗ ' + noteHtml(p.note) + "</span>" : "") +
              ' <span class="leg">+' + km(leg.m) + "</span>" +
              '<span class="found">' + esc(p.found) + "</span>";
@@ -543,7 +577,11 @@
       }
       r.order.forEach((i, t) => {
         map.geoObjects.add(new ymaps.Placemark(points[i].coords,
-          { iconContent:String(t + 1), balloonContentHeader:esc(names[w]) + ", №" + (t + 1), balloonContentBody:esc(points[i].input) + (points[i].note ? "<br><b>❗ " + noteHtml(points[i].note) + "</b>" : "") + "<br><small>" + esc(points[i].found) + "</small>" },
+          { iconContent:String(t + 1) + (points[i].timeLabel ? " ⏰" + points[i].timeLabel.replace(/^\S+ (?=\d)/, "") : ""),
+            balloonContentHeader:esc(names[w]) + ", №" + (t + 1),
+            balloonContentBody:(points[i].timeLabel ? "<b>⏰ " + esc(points[i].timeLabel) + "</b><br>" : "") + esc(points[i].input) +
+              (points[i].phone ? "<br>📞 " + noteHtml(points[i].phone) : "") +
+              (points[i].note ? "<br><b>❗ " + noteHtml(points[i].note) + "</b>" : "") + "<br><small>" + esc(points[i].found) + "</small>" },
           { preset:"islands#" + col.preset + "StretchyIcon" }));
       });
     });
@@ -578,18 +616,39 @@
 
   // ---------- адрес и комментарий в одной строке ----------
   const phoneRe = /(?:\+7|\b8)[\s\-()]*\d{3}[\s\-()]*\d{3}[\s\-]*\d{2}[\s\-]*\d{2}\b/g;
-  function parseLine(line){
+  // время: «8-00», «9:30», «до 11-00», «к 10.00», в поле «Время» можно и просто «9» или «до 11»
+  const timeRe = /(^|[\s,;(])((?:до|к|в|с|на)\s*)?([01]?\d|2[0-3])(?:\s*([-:.])\s*([0-5]\d))?(?=$|[\s,;).!]|ч)/gi;
+  function findTime(str, mode){   // mode: "field" | "note" | "addr"
+    if (!str) return null;
+    timeRe.lastIndex = 0;
+    let m;
+    while ((m = timeRe.exec(str))){
+      const pre = (m[2] || "").trim().toLowerCase(), h = +m[3], sep = m[4], mm = m[5];
+      const ok = mode === "field" ? true : mode === "note" ? !!(pre || mm) : !!(mm && (pre || sep === ":"));
+      if (ok && h >= 5 && h <= 22){
+        return { raw:m[0].slice(m[1].length), min:h * 60 + (mm ? +mm : 0), label:(pre ? pre + " " : "") + h + ":" + (mm || "00") };
+      }
+    }
+    // «… д. 20/1 8-00»: время отдельным словом в самом конце, сразу после номера дома
+    if (mode === "addr"){
+      const e = str.match(/\d[\w\/-]*\s+(([01]?\d|2[0-3])[-:.]([0-5]\d))\s*$/);
+      if (e && +e[2] >= 5 && +e[2] <= 22) return { raw:e[1], min:+e[2] * 60 + +e[3], label:+e[2] + ":" + e[3] };
+    }
+    return null;
+  }
+  // строка текста → поля таблицы
+  function parseBulk(line){
     let addr = line, note = "";
     const m = line.match(/\s*(\||\/\/)\s*|\s+\/\s*(?=[^\d\s])/);  // | или // или « /» перед текстом (но не «д. 20/1»)
     if (m){ addr = line.slice(0, m.index); note = line.slice(m.index + m[0].length); }
-    // телефоны, написанные прямо в адресе, уходят в комментарий
-    const phones = addr.match(phoneRe);
-    if (phones){
-      phones.forEach(ph => { addr = addr.replace(ph, " "); });
-      note = phones.map(x => x.trim()).join(", ") + (note ? ", " + note : "");
-    }
-    addr = addr.replace(/[\s,;\/|]+$/, "").replace(/\s{2,}/g, " ").trim();
-    return { line, addr, note: note.trim() };
+    const phones = [];
+    addr = addr.replace(phoneRe, ph => { phones.push(ph.trim()); return " "; });
+    note = note.replace(phoneRe, ph => { phones.push(ph.trim()); return " "; });
+    let t = findTime(note, "note");
+    if (t) note = note.replace(t.raw, " ");
+    else { t = findTime(addr, "addr"); if (t) addr = addr.replace(t.raw, " "); }
+    const clean = x => x.replace(/\s{2,}/g, " ").replace(/^[\s,;\/|]+|[\s,;\/|]+$/g, "").trim();
+    return { place:"", street:clean(addr), phone:phones.join(", "), time:t ? t.label : "", note:clean(note) };
   }
   // телефоны в комментарии — кликабельные (звонок с телефона)
   function noteHtml(note){
@@ -604,13 +663,120 @@
     return out + esc(note.slice(last));
   }
 
+  // ---------- таблица адресов ----------
+  const FIELDS = [
+    ["place",  "Посёлок / город",       "f-place"],
+    ["street", "Улица, дом, кв.",       "f-street"],
+    ["phone",  "Телефон",               "f-phone"],
+    ["time",   "Время: 9-30, до 11-00", "f-time"],
+    ["note",   "Комментарий",           "f-note"]
+  ];
+  const rowsBox = $("rows");
+  const blankRow = place => ({ place:place || "", street:"", phone:"", time:"", note:"" });
+  const filled = r => !!(r.place.trim() || r.street.trim());
+  let rows = [];
+  function saveRows(){ store.set("rows", JSON.stringify(rows)); updateCount(); }
+  function updateCount(){ const n = rows.filter(filled).length; $("rowCount").textContent = n ? "— " + n : ""; }
+  function markTime(inp){
+    const v = inp.value.trim(), t = findTime(v, "field");
+    inp.classList.toggle("bad", !!v && !t);
+    inp.classList.toggle("ok", !!t);
+    inp.title = t ? "Приоритет: " + t.label + " — заказ пойдёт первым" : (v ? "Не понял время. Пишите, например: 9-30 или до 11-00" : "");
+  }
+  function makeRow(r, idx){
+    const d = document.createElement("div"); d.className = "arow";
+    const num = document.createElement("span"); num.className = "num"; num.textContent = idx + 1; d.appendChild(num);
+    FIELDS.forEach(([f, ph, cls]) => {
+      const inp = document.createElement("input");
+      inp.className = cls; inp.placeholder = ph; inp.value = r[f] || ""; inp.autocomplete = "off";
+      if (f === "place") inp.setAttribute("list", "dlPlaces");
+      if (f === "street") inp.setAttribute("list", "dlStreets");
+      if (f === "phone"){ inp.type = "tel"; inp.inputMode = "tel"; }
+      inp.addEventListener("input", () => { r[f] = inp.value; saveRows(); if (f === "time") markTime(inp); });
+      inp.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); nextRow(idx); } });
+      if (f === "time") markTime(inp);
+      d.appendChild(inp);
+    });
+    const del = document.createElement("button");
+    del.type = "button"; del.className = "del"; del.textContent = "✕"; del.title = "Удалить строку";
+    del.addEventListener("click", () => { rows.splice(idx, 1); if (!rows.length) rows.push(blankRow("")); renderRows(); saveRows(); });
+    d.appendChild(del);
+    return d;
+  }
+  function renderRows(){ rowsBox.innerHTML = ""; rows.forEach((r, i) => rowsBox.appendChild(makeRow(r, i))); updateCount(); }
+  function nextRow(idx){
+    if (idx === rows.length - 1){ rows.push(blankRow(rows[idx].place)); renderRows(); saveRows(); }
+    rowsBox.children[idx + 1].querySelector(".f-street").focus();
+  }
+  $("addRow").addEventListener("click", () => {
+    const last = rows[rows.length - 1];
+    if (last && !filled(last)) { rowsBox.lastChild.querySelector(".f-place").focus(); return; }
+    rows.push(blankRow(last ? last.place : "")); renderRows(); saveRows();
+    rowsBox.lastChild.querySelector(last && last.place ? ".f-street" : ".f-place").focus();
+  });
+  $("clearRows").addEventListener("click", () => {
+    if (!confirm("Очистить все адреса?")) return;
+    const pl = rows.length ? rows[rows.length - 1].place : "";
+    rows = [blankRow(pl)]; renderRows(); saveRows();
+  });
+  $("bulkBtn").addEventListener("click", () => { const b = $("bulkBox"); b.hidden = !b.hidden; if (!b.hidden) $("bulk").focus(); });
+  $("bulkAdd").addEventListener("click", () => {
+    const add = $("bulk").value.split("\n").map(x => x.trim()).filter(Boolean).map(parseBulk).filter(filled);
+    rows = rows.filter(r => (r.place + r.street + r.phone + r.note + r.time).trim()).concat(add);
+    if (!rows.length) rows.push(blankRow(""));
+    renderRows(); saveRows();
+    $("bulk").value = ""; $("bulkBox").hidden = true;
+    setStatus("Добавлено строк: " + add.length + ". Проверьте телефоны и время в таблице.");
+  });
+  el.sample.addEventListener("click", () => {
+    rows = [
+      { place:"пос. Тульский", street:"", phone:"", time:"", note:"" },
+      { place:"ст. Ханская", street:"", phone:"8 918 000-00-00", time:"9-30", note:"пример срочного заказа" },
+      { place:"ст. Гиагинская", street:"", phone:"", time:"", note:"" },
+      { place:"пос. Каменномостский", street:"", phone:"", time:"", note:"стучать пока не откроют" },
+      { place:"ст. Абадзехская", street:"", phone:"", time:"", note:"" },
+      { place:"ст. Кужорская", street:"", phone:"", time:"", note:"" }
+    ];
+    renderRows(); saveRows();
+  });
+  // подсказки: посёлки и улицы, которые уже вводились
+  function hist(key){ try { return JSON.parse(store.get(key) || "[]"); } catch(e){ return []; } }
+  function fillDatalists(){
+    const fill = (id, arr) => { const dl = $(id); dl.innerHTML = ""; arr.forEach(v => { const o = document.createElement("option"); o.value = v; dl.appendChild(o); }); };
+    fill("dlPlaces", hist("histPlaces")); fill("dlStreets", hist("histStreets"));
+  }
+  function remember(){
+    const add = (key, vals, max) => {
+      const h = hist(key);
+      vals.forEach(v => { v = v.trim(); if (!v) return; const i = h.indexOf(v); if (i >= 0) h.splice(i, 1); h.unshift(v); });
+      store.set(key, JSON.stringify(h.slice(0, max)));
+    };
+    add("histPlaces", rows.map(r => r.place), 60);
+    add("histStreets", rows.map(r => r.street.replace(/[\s,]*(д\.?|дом)?\s*\d[\s\S]*$/i, "")), 300);
+    fillDatalists();
+  }
+  function rowQuery(r){
+    const q = [r.place.trim(), r.street.trim()].filter(Boolean).join(", ");
+    if (coordRe.test(q)) return q;
+    return /адыге|край|област|респ/i.test(q) ? q : "Республика Адыгея, " + q;
+  }
+  // загрузка сохранённой таблицы (или перенос старого списка)
+  try { rows = JSON.parse(store.get("rows") || "null"); } catch(e){ rows = null; }
+  if (!Array.isArray(rows) || !rows.length){
+    const old = store.get("addrs");
+    rows = old ? old.split("\n").map(x => x.trim()).filter(Boolean).map(parseBulk).filter(filled) : [];
+    if (!rows.length) rows = [blankRow("")];
+  }
+  rows = rows.map(r => Object.assign(blankRow(""), r));
+  renderRows(); fillDatalists();
+
   // ---------- главный запуск ----------
   el.go.addEventListener("click", async () => {
     const key = el.key.value.trim();
     if (!key){ el.keyHelp.open = true; setStatus("Сначала вставьте ключ «JavaScript API» (инструкция выше).", true); return; }
     store.set("key", key); store.set("geokey", el.geokey.value.trim());
-    const lines = [...new Set(el.addrs.value.split("\n").map(s => s.trim()).filter(Boolean))];
-    if (!lines.length){ setStatus("Вставьте хотя бы один адрес.", true); return; }
+    const items = rows.map((r, idx) => ({ r, idx })).filter(o => filled(o.r));
+    if (!items.length){ setStatus("Впишите хотя бы один адрес.", true); return; }
     const k = Math.max(1, Math.min(8, parseInt(el.workers.value, 10) || 1));
 
     el.go.disabled = true; roadFailures = 0;
@@ -626,20 +792,21 @@
       startPt = s;
 
       points = []; const notFound = [];
-      await runPool(lines.map(t => async () => {
-        const pl = parseLine(t);
-        if (!pl.addr){ notFound.push(t); return; }
+      await runPool(items.map(({ r, idx }) => async () => {
+        const label = [r.place.trim(), r.street.trim()].filter(Boolean).join(", ");
+        const t = findTime(r.time, "field");
+        const base = { input:label, phone:r.phone.trim(), note:r.note.trim(), timeMin:t ? t.min : null, timeLabel:t ? t.label : "", row:idx };
         try {
-          const g = await geocode(pl.addr);
-          if (g) points.push(Object.assign({ input:pl.addr, note:pl.note, line:t }, g)); else notFound.push(t);
+          const g = await geocode(rowQuery(r));
+          if (g) points.push(Object.assign(base, g)); else notFound.push(label);
         } catch(e){
           const ge = geoError(e);
           if (ge.fatal) throw ge;
-          notFound.push(t);
+          notFound.push(label);
         }
       }), 4, (d, n) => setStatus("Ищу адреса на карте: " + d + " из " + n));
-      // сохранить исходный порядок строк
-      points.sort((a, b) => lines.indexOf(a.line) - lines.indexOf(b.line));
+      points.sort((a, b) => a.row - b.row);
+      remember();
       renderProblems(notFound);
       if (!points.length) throw new Error("Ни один адрес не найден на карте.");
 
@@ -653,7 +820,7 @@
         await computeGroup(w);
       }
       renderCards(); renderMap();
-      setStatus("Готово. Найдено адресов: " + points.length + " из " + lines.length + "." +
+      setStatus("Готово. Найдено адресов: " + points.length + " из " + items.length + "." +
         (roadFailures ? " Сервис расчёта по дорогам ответил не на все запросы — часть расстояний приблизительная, попробуйте построить ещё раз." : "") +
         (k > 1 ? " Адрес можно передать другому рабочему через список под ним." : ""));
     } catch(e){
