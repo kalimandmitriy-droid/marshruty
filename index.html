@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Маршруты бригад</title>
+<style>
+  :root{
+    --bg:#f4f5f2; --panel:#ffffff; --ink:#1d2320; --muted:#6b736e; --line:#dfe3dc;
+    --accent:#1f6f50; --accent-ink:#ffffff; --warn:#a85b00; --warn-bg:#fff4e2; --bad:#b3261e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{padding:18px 16px 6px;max-width:1200px;margin:0 auto}
+  header h1{margin:0;font-size:22px}
+  header p{margin:2px 0 0;color:var(--muted)}
+  main{max-width:1200px;margin:0 auto;padding:10px 16px 40px;display:grid;gap:14px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  label{display:block;font-weight:600;font-size:13px;color:var(--muted);margin-bottom:10px}
+  input,textarea,select{width:100%;margin-top:4px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;color:var(--ink);background:#fff}
+  textarea{resize:vertical;min-height:180px}
+  .row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+  .row > label{flex:1 1 160px}
+  .row > label.narrow{flex:0 1 110px}
+  .chk{display:flex;gap:6px;align-items:center;font-weight:500;color:var(--ink)}
+  .chk input{width:auto;margin:0}
+  button,.btn{display:inline-block;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);font:inherit;font-weight:600;cursor:pointer;text-decoration:none}
+  button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);padding:11px 18px}
+  button:disabled{opacity:.55;cursor:wait}
+  #status{margin-top:10px;color:var(--muted);min-height:1.4em}
+  #status.err{color:var(--bad);font-weight:600}
+  details{margin-bottom:12px}
+  summary{cursor:pointer;font-weight:600;color:var(--accent)}
+  details ol{margin:8px 0 0;padding-left:20px;color:var(--ink)}
+  .keyrow{display:flex;gap:8px;align-items:flex-end}
+  .keyrow label{flex:1;margin:0}
+  #map{height:460px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#e9ece6}
+  #problems{background:var(--warn-bg);border:1px solid #f0d3a6;border-radius:12px;padding:12px 14px}
+  #problems h2{margin:0 0 6px;font-size:16px;color:var(--warn)}
+  #problems ul{margin:0;padding-left:18px}
+  #results{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--line);border-top:6px solid var(--c);border-radius:12px;padding:12px 14px;break-inside:avoid}
+  .card-head{display:flex;gap:8px;align-items:center}
+  .card-head input{font-size:17px;font-weight:700;border:none;padding:2px 0;margin:0;background:transparent}
+  .sum{color:var(--muted);font-size:13px;margin:2px 0 8px}
+  .card ol{margin:0;padding-left:22px}
+  .card li{padding:6px 0;border-bottom:1px dashed var(--line)}
+  .card li:last-child{border-bottom:none}
+  .addr{font-weight:600}
+  .found{display:block;color:var(--muted);font-size:12.5px}
+  .leg{white-space:nowrap;color:var(--accent);font-size:12.5px;font-weight:600}
+  .move{width:auto;margin:4px 0 0;padding:3px 6px;font-size:12.5px}
+  .flag{color:var(--warn);font-weight:700}
+  .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .note{color:var(--muted);font-size:12.5px;margin-top:6px}
+  @media (max-width:600px){ #map{height:340px} #results{grid-template-columns:1fr} }
+  @media print{
+    header p,#setup,#map,#problems,.actions,.move{display:none!important}
+    body{background:#fff} .card{border:1px solid #999;border-top:6px solid var(--c);page-break-inside:avoid;margin-bottom:12px}
+    #results{display:block}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Маршруты бригад</h1>
+  <p>Адреса → поиск на карте → деление между рабочими → оптимальный порядок по дорогам → ссылка на маршрут</p>
+</header>
+<main>
+  <section class="panel" id="setup">
+    <details id="keyHelp">
+      <summary>Как получить ключ Яндекс Карт (один раз)</summary>
+      <ol>
+        <li>Откройте <b>developer.tech.yandex.ru</b> и войдите с вашим Яндекс ID.</li>
+        <li>Нажмите «Подключить API» и подключите <b>два продукта</b>: <b>«JavaScript API»</b> (карта и маршруты) и <b>«HTTP Геокодер»</b> (поиск адресов). У каждого будет свой ключ.</li>
+        <li>Ограничение по HTTP Referer в настройках ключей <b>не ставьте</b>, иначе страница, открытая с компьютера, не сможет ими пользоваться.</li>
+        <li>Вставьте оба ключа в поля ниже и нажмите «Сохранить». Ключи хранятся только в этом браузере и начинают работать примерно через 15 минут после получения.</li>
+      </ol>
+    </details>
+    <div class="keyrow">
+      <label>Ключ «JavaScript API»
+        <input id="apikey" type="password" autocomplete="off" placeholder="ключ для карты и маршрутов">
+      </label>
+      <label>Ключ «HTTP Геокодер»
+        <input id="geokey" type="password" autocomplete="off" placeholder="ключ для поиска адресов">
+      </label>
+      <button id="saveKey" type="button">Сохранить</button>
+    </div>
+    <div style="height:12px"></div>
+    <label>Точка старта (откуда выезжают рабочие)
+      <input id="start" value="Майкоп, Республика Адыгея">
+    </label>
+    <label>Адреса — каждый с новой строки
+      <textarea id="addrs" placeholder="ст. Ханская, ул. Ленина, 10&#10;пос. Тульский, ул. Мира, 5&#10;ст. Гиагинская, ул. Красная, 120&#10;...&#10;&#10;Можно и координатами: 44.6091, 40.1006"></textarea>
+    </label>
+    <div class="row">
+      <label class="narrow">Рабочих
+        <input id="workers" type="number" min="1" max="8" value="2">
+      </label>
+      <label>Как делить адреса
+        <select id="split">
+          <option value="even">По направлениям, поровну</option>
+          <option value="gaps">По направлениям, как легли на карте</option>
+        </select>
+      </label>
+      <label>Порядок объезда
+        <select id="mode">
+          <option value="opt">Оптимальный маршрут (ближайший следующий)</option>
+          <option value="dist">По удалённости от старта</option>
+        </select>
+      </label>
+      <label class="chk"><input type="checkbox" id="ret"> Вернуться на старт</label>
+    </div>
+    <div class="row">
+      <button id="go" class="primary" type="button">Построить маршруты</button>
+      <button id="sample" type="button">Пример</button>
+      <button id="print" type="button">Печать</button>
+    </div>
+    <div id="status"></div>
+  </section>
+
+  <section id="problems" hidden></section>
+  <section id="map" hidden></section>
+  <section id="results"></section>
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- настройки ----------
+  const COLORS = [
+    {preset:"blue",     hex:"#1E98FF"},
+    {preset:"red",      hex:"#ED4543"},
+    {preset:"darkGreen",hex:"#1BAD03"},
+    {preset:"violet",   hex:"#B51EFF"},
+    {preset:"orange",   hex:"#FF931E"},
+    {preset:"brown",    hex:"#793D0E"},
+    {preset:"darkBlue", hex:"#177BC9"},
+    {preset:"pink",     hex:"#F371D1"}
+  ];
+  const BOUNDS = [[43.6, 38.4], [45.4, 41.3]];   // Адыгея и окрестности — подсказка геокодеру
+  const ROAD_MATRIX_LIMIT = 12;                   // до стольких адресов у одного рабочего считаем все расстояния по дорогам
+  const ROAD_FACTOR = 1.3;                        // запасной коэффициент «прямая → дорога»
+  const GOOD_PRECISION = ["exact", "number", "near"];
+
+  // ---------- хранилище в браузере ----------
+  const store = {
+    get(k){ try { return localStorage.getItem("brigady_" + k); } catch(e){ return null; } },
+    set(k,v){ try { localStorage.setItem("brigady_" + k, v); } catch(e){} }
+  };
+
+  const $ = id => document.getElementById(id);
+  const el = {
+    key:$("apikey"), geokey:$("geokey"), saveKey:$("saveKey"), start:$("start"), addrs:$("addrs"),
+    workers:$("workers"), split:$("split"), mode:$("mode"), ret:$("ret"),
+    go:$("go"), sample:$("sample"), print:$("print"), status:$("status"),
+    problems:$("problems"), map:$("map"), results:$("results"), keyHelp:$("keyHelp")
+  };
+
+  // восстановить прошлые значения
+  ["start","addrs","workers","split","mode"].forEach(k => { const v = store.get(k); if (v !== null) el[k].value = v; });
+  el.ret.checked = store.get("ret") === "1";
+  const savedKey = store.get("key");
+  const savedGeo = store.get("geokey");
+  if (savedKey) el.key.value = savedKey;
+  if (savedGeo) el.geokey.value = savedGeo;
+  if (!savedKey || !savedGeo) el.keyHelp.open = true;
+  ["start","addrs","workers","split","mode"].forEach(k => el[k].addEventListener("change", () => store.set(k, el[k].value)));
+  el.addrs.addEventListener("input", () => store.set("addrs", el.addrs.value));
+  el.ret.addEventListener("change", () => store.set("ret", el.ret.checked ? "1" : "0"));
+
+  function setStatus(msg, isErr){ el.status.textContent = msg || ""; el.status.className = isErr ? "err" : ""; }
+
+  el.saveKey.addEventListener("click", () => {
+    const k = el.key.value.trim(), g = el.geokey.value.trim();
+    store.set("key", k); store.set("geokey", g);
+    if (window.ymaps && loadedKey && loadedKey !== k) setStatus("Ключи сохранены. Обновите страницу (F5), чтобы новый ключ карты начал действовать.");
+    else setStatus("Ключи сохранены.");
+  });
+
+  el.sample.addEventListener("click", () => {
+    el.addrs.value = [
+      "пос. Тульский",
+      "ст. Ханская",
+      "ст. Гиагинская",
+      "пос. Каменномостский",
+      "ст. Абадзехская",
+      "ст. Кужорская"
+    ].join("\n");
+    store.set("addrs", el.addrs.value);
+  });
+
+  el.print.addEventListener("click", () => window.print());
+
+  // ---------- загрузка API Яндекс Карт ----------
+  let ymapsPromise = null, loadedKey = null;
+  function loadYmaps(key){
+    if (ymapsPromise) return ymapsPromise;
+    loadedKey = key;
+    ymapsPromise = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://api-maps.yandex.ru/2.1/?apikey=" + encodeURIComponent(key) + "&lang=ru_RU";
+      s.onload = () => window.ymaps ? ymaps.ready(() => resolve(window.ymaps)) : reject(new Error("API не загрузился"));
+      s.onerror = () => { ymapsPromise = null; reject(new Error("Яндекс Карты не загрузились. Возможные причины: ключ получен меньше 15 минут назад; ключ не от «JavaScript API»; файл открыт не в браузере (скачайте его и откройте двойным щелчком); мешает блокировщик рекламы. После исправления обновите страницу (F5).")); };
+      document.head.appendChild(s);
+    });
+    return ymapsPromise;
+  }
+
+  // ---------- геометрия ----------
+  function haversineM(a, b){
+    const R = 6371000, toR = Math.PI / 180;
+    const dLat = (b[0]-a[0])*toR, dLon = (b[1]-a[1])*toR;
+    const h = Math.sin(dLat/2)**2 + Math.cos(a[0]*toR)*Math.cos(b[0]*toR)*Math.sin(dLon/2)**2;
+    return 2*R*Math.asin(Math.sqrt(h));
+  }
+  function bearing(start, p){
+    return Math.atan2((p[1]-start[1]) * Math.cos(start[0]*Math.PI/180), p[0]-start[0]);
+  }
+
+  // ---------- геокодирование ----------
+  const coordRe = /^\s*(\d{1,2}\.\d+)\s*[,;\s]\s*(\d{1,3}\.\d+)\s*$/;
+  async function geocode(text){
+    const m = text.match(coordRe);
+    if (m) return { coords:[parseFloat(m[1]), parseFloat(m[2])], found:"координаты " + m[1] + ", " + m[2], precision:"exact" };
+    const gk = el.geokey.value.trim();
+    if (gk){
+      // HTTP Геокодер напрямую (координаты в ответе: «долгота широта»)
+      const url = "https://geocode-maps.yandex.ru/1.x/?apikey=" + encodeURIComponent(gk) +
+        "&geocode=" + encodeURIComponent(text) + "&format=json&results=1&lang=ru_RU" +
+        "&bbox=" + BOUNDS[0][1] + "," + BOUNDS[0][0] + "~" + BOUNDS[1][1] + "," + BOUNDS[1][0];
+      let resp;
+      try { resp = await fetch(url); }
+      catch(e){ throw new Error("GEO_NET"); }
+      if (resp.status === 403 || resp.status === 401) throw new Error("GEO_KEY");
+      if (!resp.ok) throw new Error("GEO_HTTP " + resp.status);
+      const data = await resp.json();
+      const fm = data && data.response && data.response.GeoObjectCollection && data.response.GeoObjectCollection.featureMember;
+      if (!fm || !fm.length) return null;
+      const go = fm[0].GeoObject;
+      const pos = go.Point.pos.split(" ").map(parseFloat);
+      const md = go.metaDataProperty && go.metaDataProperty.GeocoderMetaData || {};
+      return { coords:[pos[1], pos[0]], found: md.text || go.name, precision: md.precision || "other" };
+    }
+    const res = await ymaps.geocode(text, { results:1, boundedBy:BOUNDS });
+    const g = res.geoObjects.get(0);
+    if (!g) return null;
+    const found = (typeof g.getAddressLine === "function" ? g.getAddressLine() : "") || g.properties.get("text") || g.properties.get("name");
+    return {
+      coords: g.geometry.getCoordinates(),
+      found: found,
+      precision: g.properties.get("metaDataProperty.GeocoderMetaData.precision") || "other"
+    };
+  }
+
+  // ---------- расстояния по дорогам ----------
+  const legCache = new Map();
+  let roadFailures = 0;
+  const ck = c => c[0].toFixed(5) + "," + c[1].toFixed(5);
+  async function roadLeg(a, b){
+    if (ck(a) === ck(b)) return { m:0, s:0, road:true };
+    const k1 = ck(a) + "|" + ck(b), k2 = ck(b) + "|" + ck(a);
+    if (legCache.has(k1)) return legCache.get(k1);
+    if (legCache.has(k2)) return legCache.get(k2);
+    let v;
+    try {
+      const r = await ymaps.route([a, b], { mapStateAutoApply:false });
+      v = { m:r.getLength(), s:r.getTime(), road:true };
+    } catch(e) {
+      roadFailures++;
+      const m = haversineM(a, b) * ROAD_FACTOR;
+      v = { m, s:m / (55/3.6), road:false };
+    }
+    legCache.set(k1, v);
+    return v;
+  }
+  function approxLeg(a, b){
+    const m = haversineM(a, b) * ROAD_FACTOR;
+    return { m, s:m / (55/3.6), road:false };
+  }
+
+  async function runPool(tasks, n, onProgress){
+    let next = 0, done = 0;
+    const out = new Array(tasks.length);
+    async function worker(){
+      while (next < tasks.length){
+        const j = next++;
+        out[j] = await tasks[j]();
+        done++; if (onProgress) onProgress(done, tasks.length);
+      }
+    }
+    await Promise.all(Array.from({length:Math.min(n, tasks.length)}, worker));
+    return out;
+  }
+
+  // ---------- деление по направлениям ----------
+  function splitGroups(startC, pts, k, method){
+    const idx = pts.map((p, i) => i);
+    if (k <= 1 || pts.length <= 1) return [idx];
+    k = Math.min(k, pts.length);
+    const ang = idx.map(i => ({ i, a:bearing(startC, pts[i].coords) })).sort((x, y) => x.a - y.a);
+    const n = ang.length;
+    const gapAfter = j => (j + 1 < n ? ang[j+1].a : ang[0].a + 2*Math.PI) - ang[j].a;
+    // начинаем круг с самого большого «пустого» сектора
+    let g0 = 0, gmax = -1;
+    for (let j = 0; j < n; j++){ const g = gapAfter(j); if (g > gmax){ gmax = g; g0 = j; } }
+    const ordered = ang.slice(g0 + 1).concat(ang.slice(0, g0 + 1));
+    const groups = [];
+    if (method === "gaps"){
+      // режем по k-1 самым большим разрывам между направлениями
+      const gaps = [];
+      for (let j = 0; j < n - 1; j++){
+        let d = ordered[j+1].a - ordered[j].a; if (d < 0) d += 2*Math.PI;
+        gaps.push({ j, d });
+      }
+      const cuts = gaps.sort((x, y) => y.d - x.d).slice(0, k - 1).map(g => g.j).sort((x, y) => x - y);
+      let from = 0;
+      cuts.forEach(c => { groups.push(ordered.slice(from, c + 1).map(o => o.i)); from = c + 1; });
+      groups.push(ordered.slice(from).map(o => o.i));
+    } else {
+      let from = 0;
+      for (let w = 0; w < k; w++){
+        const size = Math.round((n - from) / (k - w));
+        groups.push(ordered.slice(from, from + size).map(o => o.i));
+        from += size;
+      }
+    }
+    return groups;
+  }
+
+  // ---------- порядок объезда ----------
+  function pathCost(order, D, ret){
+    let c = 0;
+    for (let t = 0; t < order.length - 1; t++) c += D[order[t]][order[t+1]];
+    if (ret && order.length > 1) c += D[order[order.length-1]][0];
+    return c;
+  }
+  function optimizeOrder(D, ret){
+    const n = D.length;               // узел 0 — старт
+    const left = new Set(); for (let i = 1; i < n; i++) left.add(i);
+    const order = [0];
+    while (left.size){
+      const cur = order[order.length - 1];
+      let best = -1, bd = Infinity;
+      left.forEach(j => { if (D[cur][j] < bd){ bd = D[cur][j]; best = j; } });
+      order.push(best); left.delete(best);
+    }
+    // улучшение 2-opt
+    let improved = true, guard = 0;
+    while (improved && guard++ < 200){
+      improved = false;
+      for (let i = 1; i < n - 1; i++){
+        for (let j = i + 1; j < n; j++){
+          const cand = order.slice(0, i).concat(order.slice(i, j + 1).reverse(), order.slice(j + 1));
+          if (pathCost(cand, D, ret) + 1e-6 < pathCost(order, D, ret)){ order.splice(0, n, ...cand); improved = true; }
+        }
+      }
+    }
+    return order;
+  }
+
+  // ---------- состояние ----------
+  let startPt = null;          // {coords, found}
+  let points = [];             // {input, coords, found, precision}
+  let groups = [];             // массивы индексов points
+  let routes = [];             // {order:[индексы points], legs:[...], m, s, approx}
+  let names = [];
+  let map = null;
+
+  async function computeGroup(w, onProgress){
+    const members = groups[w];
+    if (!members.length){ routes[w] = { order:[], legs:[], m:0, s:0, approx:false, back:null }; return; }
+    const nodes = [startPt.coords].concat(members.map(i => points[i].coords));
+    const n = nodes.length;
+    const D = Array.from({length:n}, () => new Array(n).fill(0));
+    const full = members.length <= ROAD_MATRIX_LIMIT;
+    const tasks = [];
+    for (let i = 0; i < n; i++){
+      for (let j = i + 1; j < n; j++){
+        if (full || i === 0){
+          tasks.push(async () => { const v = await roadLeg(nodes[i], nodes[j]); D[i][j] = D[j][i] = v.m; });
+        } else {
+          const v = approxLeg(nodes[i], nodes[j]); D[i][j] = D[j][i] = v.m;
+        }
+      }
+    }
+    await runPool(tasks, 4, onProgress);
+    const ret = el.ret.checked;
+    let ord;
+    if (el.mode.value === "dist"){
+      ord = [0].concat(members.map((_, k) => k + 1).sort((a, b) => D[0][a] - D[0][b]));
+    } else {
+      ord = optimizeOrder(D, ret);
+    }
+    // итоговые отрезки — всегда по дорогам
+    const legs = [];
+    for (let t = 0; t < ord.length - 1; t++) legs.push(await roadLeg(nodes[ord[t]], nodes[ord[t+1]]));
+    const back = ret && ord.length > 1 ? await roadLeg(nodes[ord[ord.length-1]], nodes[0]) : null;
+    const all = back ? legs.concat([back]) : legs;
+    routes[w] = {
+      order: ord.slice(1).map(k => members[k - 1]),
+      legs, back,
+      m: all.reduce((a, l) => a + l.m, 0),
+      s: all.reduce((a, l) => a + l.s, 0),
+      approx: all.some(l => !l.road) || !full
+    };
+  }
+
+  // ---------- вывод ----------
+  const km = m => (m / 1000).toFixed(m < 10000 ? 1 : 0).replace(".", ",") + " км";
+  function dur(s){ const h = Math.floor(s / 3600), mi = Math.round((s % 3600) / 60); return h ? h + " ч " + mi + " мин" : mi + " мин"; }
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+  function yandexLink(w){
+    const r = routes[w];
+    const seq = [startPt.coords].concat(r.order.map(i => points[i].coords));
+    if (el.ret.checked && r.order.length) seq.push(startPt.coords);
+    return "https://yandex.ru/maps/?rtext=" + seq.map(c => c[0].toFixed(6) + "," + c[1].toFixed(6)).join("~") + "&rtt=auto";
+  }
+
+  function messageText(w){
+    const r = routes[w];
+    const lines = [names[w] + " — адресов: " + r.order.length + ", около " + km(r.m) + " (" + dur(r.s) + " в пути)"];
+    r.order.forEach((i, t) => lines.push((t + 1) + ". " + points[i].input));
+    if (el.ret.checked) lines.push("Затем — обратно: " + el.start.value.trim());
+    lines.push("Маршрут: " + yandexLink(w));
+    return lines.join("\n");
+  }
+
+  function renderProblems(notFound){
+    const doubtful = points.filter(p => !GOOD_PRECISION.includes(p.precision));
+    if (!notFound.length && !doubtful.length){ el.problems.hidden = true; return; }
+    let h = "<h2>Проверьте эти адреса</h2><ul>";
+    notFound.forEach(t => h += "<li><b>" + esc(t) + "</b> — не найден на карте, в маршрут не попал. Исправьте написание и постройте заново.</li>");
+    doubtful.forEach(p => h += "<li><b>" + esc(p.input) + "</b> — найден неточно: «" + esc(p.found) + "». Проверьте, тот ли это адрес.</li>");
+    el.problems.innerHTML = h + "</ul>";
+    el.problems.hidden = false;
+  }
+
+  function renderCards(){
+    const k = groups.length;
+    el.results.innerHTML = "";
+    groups.forEach((_, w) => {
+      const r = routes[w], col = COLORS[w % COLORS.length];
+      const card = document.createElement("div");
+      card.className = "card"; card.style.setProperty("--c", col.hex);
+      let h = '<div class="card-head"><input class="wname" value="' + esc(names[w]) + '" aria-label="Имя рабочего"></div>';
+      h += '<div class="sum">Адресов: ' + r.order.length + (r.order.length ? " · " + km(r.m) + " · ~" + dur(r.s) + " в пути" : "") + "</div><ol>";
+      r.order.forEach((i, t) => {
+        const p = points[i], leg = r.legs[t];
+        const flag = GOOD_PRECISION.includes(p.precision) ? "" : ' <span class="flag" title="Найден неточно">⚠</span>';
+        h += '<li><span class="addr">' + esc(p.input) + "</span>" + flag +
+             ' <span class="leg">+' + km(leg.m) + "</span>" +
+             '<span class="found">' + esc(p.found) + "</span>";
+        if (k > 1){
+          h += '<select class="move" data-i="' + i + '" aria-label="Передать другому рабочему">';
+          groups.forEach((__, w2) => h += '<option value="' + w2 + '"' + (w2 === w ? " selected" : "") + ">" + (w2 === w ? "Оставить у: " : "Передать: ") + esc(names[w2]) + "</option>");
+          h += "</select>";
+        }
+        h += "</li>";
+      });
+      h += "</ol>";
+      if (r.order.length){
+        h += '<div class="actions"><a class="btn" target="_blank" rel="noopener" href="' + yandexLink(w) + '">Открыть в Яндекс Картах</a>' +
+             '<button type="button" class="copy">Скопировать для мессенджера</button></div>';
+        if (r.approx) h += '<div class="note">Часть расстояний оценена приблизительно (много адресов или сбой расчёта по дорогам).</div>';
+      }
+      card.innerHTML = h;
+      card.querySelector(".wname").addEventListener("input", e => { names[w] = e.target.value || ("Рабочий " + (w + 1)); store.set("names", JSON.stringify(names)); });
+      const copyBtn = card.querySelector(".copy");
+      if (copyBtn) copyBtn.addEventListener("click", async () => {
+        const txt = messageText(w);
+        try { await navigator.clipboard.writeText(txt); copyBtn.textContent = "Скопировано ✓"; }
+        catch(e){ window.prompt("Скопируйте текст:", txt); }
+        setTimeout(() => copyBtn.textContent = "Скопировать для мессенджера", 1800);
+      });
+      card.querySelectorAll(".move").forEach(sel => sel.addEventListener("change", e => moveTo(+e.target.dataset.i, w, +e.target.value)));
+      el.results.appendChild(card);
+    });
+  }
+
+  function renderMap(){
+    el.map.hidden = false;
+    if (!map){
+      map = new ymaps.Map("map", { center:startPt.coords, zoom:9, controls:["zoomControl","typeSelector","fullscreenControl"] });
+    }
+    map.geoObjects.removeAll();
+    map.geoObjects.add(new ymaps.Placemark(startPt.coords, { iconContent:"Старт", balloonContent:esc(startPt.found) }, { preset:"islands#blackStretchyIcon" }));
+    routes.forEach((r, w) => {
+      const col = COLORS[w % COLORS.length];
+      if (!r.order.length) return;
+      const pts = [startPt.coords].concat(r.order.map(i => points[i].coords));
+      if (el.ret.checked) pts.push(startPt.coords);
+      try {
+        const mr = new ymaps.multiRouter.MultiRoute(
+          { referencePoints:pts, params:{ results:1 } },
+          { wayPointVisible:false, viaPointVisible:false, pinVisible:false, boundsAutoApply:false,
+            routeActiveStrokeColor:col.hex, routeActiveStrokeWidth:4, routeStrokeColor:col.hex }
+        );
+        map.geoObjects.add(mr);
+      } catch(e){}
+      r.order.forEach((i, t) => {
+        map.geoObjects.add(new ymaps.Placemark(points[i].coords,
+          { iconContent:String(t + 1), balloonContentHeader:esc(names[w]) + ", №" + (t + 1), balloonContentBody:esc(points[i].input) + "<br><small>" + esc(points[i].found) + "</small>" },
+          { preset:"islands#" + col.preset + "StretchyIcon" }));
+      });
+    });
+    const b = map.geoObjects.getBounds();
+    if (b) map.setBounds(b, { checkZoomRange:true, zoomMargin:40 });
+  }
+
+  async function moveTo(i, from, to){
+    if (from === to) return;
+    groups[from] = groups[from].filter(x => x !== i);
+    groups[to].push(i);
+    setStatus("Пересчитываю маршруты…");
+    try {
+      await computeGroup(from); await computeGroup(to);
+      renderCards(); renderMap();
+      setStatus("Готово.");
+    } catch(e){ setStatus("Ошибка пересчёта: " + e.message, true); }
+  }
+
+  function geoError(e){
+    const m = String(e && (e.message || e));
+    let msg = null;
+    if (m === "GEO_KEY") msg = "Яндекс не принял ключ «HTTP Геокодер». Проверьте, что вставлен именно он, и подождите 15 минут после получения.";
+    else if (m === "GEO_NET") msg = "Не удалось связаться с HTTP Геокодером. Отключите блокировщик рекламы для этой страницы и проверьте интернет.";
+    else if (/scriptError|403|Forbidden|key/i.test(m)) msg = el.geokey.value.trim()
+      ? "Поиск адресов не сработал (" + m + "). Проверьте ключ «HTTP Геокодер»."
+      : "Поиск адресов не сработал (" + m + "). Подключите в кабинете Яндекса «HTTP Геокодер» и вставьте его ключ во второе поле.";
+    const err = new Error(msg || m);
+    err.fatal = !!msg;
+    return err;
+  }
+
+  // ---------- главный запуск ----------
+  el.go.addEventListener("click", async () => {
+    const key = el.key.value.trim();
+    if (!key){ el.keyHelp.open = true; setStatus("Сначала вставьте ключ «JavaScript API» (инструкция выше).", true); return; }
+    store.set("key", key); store.set("geokey", el.geokey.value.trim());
+    const lines = [...new Set(el.addrs.value.split("\n").map(s => s.trim()).filter(Boolean))];
+    if (!lines.length){ setStatus("Вставьте хотя бы один адрес.", true); return; }
+    const k = Math.max(1, Math.min(8, parseInt(el.workers.value, 10) || 1));
+
+    el.go.disabled = true; roadFailures = 0;
+    try {
+      setStatus("Загружаю Яндекс Карты…");
+      await loadYmaps(key);
+
+      setStatus("Ищу точку старта…");
+      let s;
+      try { s = await geocode(el.start.value.trim() || "Майкоп"); }
+      catch(e){ throw geoError(e); }
+      if (!s) throw new Error("Не нашёл точку старта. Проверьте её написание.");
+      startPt = s;
+
+      points = []; const notFound = [];
+      await runPool(lines.map(t => async () => {
+        try {
+          const g = await geocode(t);
+          if (g) points.push(Object.assign({ input:t }, g)); else notFound.push(t);
+        } catch(e){
+          const ge = geoError(e);
+          if (ge.fatal) throw ge;
+          notFound.push(t);
+        }
+      }), 4, (d, n) => setStatus("Ищу адреса на карте: " + d + " из " + n));
+      // сохранить исходный порядок строк
+      points.sort((a, b) => lines.indexOf(a.input) - lines.indexOf(b.input));
+      renderProblems(notFound);
+      if (!points.length) throw new Error("Ни один адрес не найден на карте.");
+
+      groups = splitGroups(startPt.coords, points, k, el.split.value);
+      try { const saved = JSON.parse(store.get("names") || "[]"); names = groups.map((_, w) => saved[w] || ("Рабочий " + (w + 1))); }
+      catch(e){ names = groups.map((_, w) => "Рабочий " + (w + 1)); }
+
+      routes = [];
+      for (let w = 0; w < groups.length; w++){
+        await computeGroup(w, (d, n) => setStatus("Считаю расстояния по дорогам — " + names[w] + ": " + d + " из " + n));
+      }
+      renderCards(); renderMap();
+      setStatus("Готово. Найдено адресов: " + points.length + " из " + lines.length + "." +
+        (roadFailures ? " Часть расстояний (" + roadFailures + ") посчитана приблизительно." : "") +
+        (k > 1 ? " Адрес можно передать другому рабочему через список под ним." : ""));
+    } catch(e){
+      setStatus(e.message || String(e), true);
+    } finally {
+      el.go.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>
