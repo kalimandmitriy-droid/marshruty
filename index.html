@@ -36,22 +36,30 @@
   .keyrow label{flex:1;margin:0}
   .addr-head{font-weight:600;font-size:13px;color:var(--muted);margin-bottom:2px}
   .hint{font-size:12.5px;color:var(--muted);margin-bottom:8px}
-  .arow{display:grid;grid-template-columns:26px 1.1fr 1.5fr 1fr .9fr 1.5fr 34px;gap:6px;align-items:center;margin-bottom:6px}
+  .arow{display:grid;grid-template-columns:24px .7fr 1.65fr 1.2fr .5fr .75fr 1fr 1.2fr 30px;gap:6px;align-items:center;margin-bottom:6px}
+  .arow select{margin:0;padding:8px 6px}
+  .ahdr{display:grid;grid-template-columns:24px .7fr 1.65fr 1.2fr .5fr .75fr 1fr 1.2fr 30px;gap:6px;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:3px}
+  .ahdr span{padding-left:4px}
   .arow input{margin:0;padding:8px 9px}
   .arow .num{color:var(--muted);font-size:12.5px;text-align:right}
   .arow .del{padding:6px 0;border-color:transparent;color:var(--muted);background:transparent}
   .arow .del:hover{color:var(--bad)}
   .arow input.bad{border-color:var(--bad);background:#fff5f5}
-  .arow input.f-time.ok{border-color:#e89a2c;background:#fff8ee;font-weight:600}
+  .arow .f-time.ok{border-color:#e89a2c;background:#fff8ee;font-weight:600}
+  .howto{background:#eef6f1;border:1px solid #cfe3d7;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:14px}
+  .howto b.t{display:block;font-size:15px;margin-bottom:4px;color:var(--accent)}
+  .howto ol{margin:0;padding-left:20px}
+  .howto li{margin:2px 0}
   #bulkBox{margin-bottom:14px}
   #bulkBox textarea{min-height:140px;margin-bottom:8px}
   .tbadge{display:inline-block;background:#fde7e7;color:#b3261e;font-weight:700;font-size:12.5px;padding:1px 8px;border-radius:10px;margin-right:6px;vertical-align:1px}
   .tel{display:inline-block;font-size:13.5px;font-weight:600;color:var(--accent);text-decoration:none;margin-top:3px}
   .warn{color:var(--warn);font-size:13px;font-weight:600;margin:2px 0 8px}
   @media (max-width:700px){
-    .arow{grid-template-columns:22px 1fr 1fr 30px;grid-template-areas:"n p p d" ". s s ." ". ph t ." ". c c .";padding-bottom:8px;border-bottom:1px dashed var(--line)}
-    .arow .num{grid-area:n} .arow .f-place{grid-area:p} .arow .f-street{grid-area:s} .arow .f-phone{grid-area:ph}
-    .arow .f-time{grid-area:t} .arow .f-note{grid-area:c} .arow .del{grid-area:d}
+    .ahdr{display:none}
+    .arow{grid-template-columns:22px 1fr 1fr 30px;grid-template-areas:"n rg p d" ". s h ." ". t ph ." ". c c .";padding-bottom:8px;border-bottom:1px dashed var(--line)}
+    .arow .num{grid-area:n} .arow .f-region{grid-area:rg} .arow .f-place{grid-area:p} .arow .f-street{grid-area:s} .arow .f-house{grid-area:h}
+    .arow .f-phone{grid-area:ph} .arow .f-time{grid-area:t} .arow .f-note{grid-area:c} .arow .del{grid-area:d}
   }
   #map{height:460px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#e9ece6}
   #problems{background:var(--warn-bg);border:1px solid #f0d3a6;border-radius:12px;padding:12px 14px}
@@ -91,15 +99,25 @@
 </header>
 <main>
   <section class="panel" id="setup">
+    <div class="howto">
+      <b class="t">Как пользоваться</b>
+      <ol>
+        <li>Заполните таблицу. <b>Населённый пункт</b> выберите из списка: ближайшие к Майкопу стоят сверху, можно начать печатать название. Улицу и дом впишите.</li>
+        <li><b>Enter</b> — новая строка, регион и населённый пункт подставятся сами.</li>
+        <li>Если у заказа есть время (8:00, 9:30, до 11:00), <b>выберите его</b>: такой заказ поедет первым в маршруте.</li>
+        <li>Укажите число рабочих и нажмите <b>«Построить маршруты»</b>. Адреса из оранжевого блока «Проверьте» поправьте.</li>
+        <li>Каждому рабочему нажмите <b>«Скопировать для мессенджера»</b> и отправьте.</li>
+      </ol>
+      Текст, распознанный с фото, — кнопка «Вставить списком». Пустой бланк для диспетчеров — кнопка «Бланк для печати».
+    </div>
     <details id="keyHelp">
-      <summary>Как получить ключ Яндекс Карт (один раз)</summary>
+      <summary>Ключи Яндекс Карт (настраиваются один раз на каждом компьютере)</summary>
       <ol>
         <li>Откройте <b>developer.tech.yandex.ru</b> и войдите с вашим Яндекс ID.</li>
         <li>Нажмите «Подключить API» и подключите <b>два продукта</b>: <b>«JavaScript API»</b> (карта и маршруты) и <b>«HTTP Геокодер»</b> (поиск адресов). У каждого будет свой ключ.</li>
         <li>У ключа «JavaScript API» в поле «Ограничение по HTTP Referer» укажите адрес этого сайта без https:// (например, <b>kalimandmitriy-droid.github.io</b>).</li>
         <li>Вставьте оба ключа в поля ниже и нажмите «Сохранить». Ключи хранятся только в этом браузере и начинают работать примерно через 15 минут после получения.</li>
       </ol>
-    </details>
     <div class="keyrow">
       <label>Ключ «JavaScript API»
         <input id="apikey" type="password" autocomplete="off" placeholder="ключ для карты и маршрутов">
@@ -109,18 +127,22 @@
       </label>
       <button id="saveKey" type="button">Сохранить</button>
     </div>
+    </details>
     <div style="height:12px"></div>
     <label>Точка старта (откуда выезжают рабочие)
       <input id="start" value="Майкоп, Республика Адыгея">
     </label>
     <div class="addr-head">Адреса <span id="rowCount"></span></div>
-    <div class="hint">Enter — переход на новую строку, посёлок подставится сам. Время (8-00, 9-30, до 11-00) ставит заказ первым в маршруте.</div>
+    <div class="hint" id="placeHint"></div>
+    <div class="ahdr"><span>№</span><span>Регион</span><span>Населённый пункт</span><span>Улица</span><span>Дом, кв.</span><span>Время</span><span>Телефон</span><span>Комментарий</span><span></span></div>
     <div id="rows"></div>
     <datalist id="dlPlaces"></datalist><datalist id="dlStreets"></datalist>
+    <datalist id="dlRegions"><option value="Адыгея"></option><option value="Краснодарский край"></option></datalist>
     <div class="row" style="margin:6px 0 14px">
       <button type="button" id="addRow">+ Добавить адрес</button>
       <button type="button" id="bulkBtn">Вставить списком</button>
       <button type="button" id="clearRows">Очистить всё</button>
+      <button type="button" id="blankBtn">Бланк для печати</button>
     </div>
     <div id="bulkBox" hidden>
       <textarea id="bulk" placeholder="Вставьте текст — по одному адресу в строке (например, распознанный с фото). Телефоны и время программа найдёт сама, текст после знака | станет комментарием.&#10;&#10;п. Краснооктябрьский, ул. Советская, 49 | +7 928 472-77-80 до 11-00 стучать громко"></textarea>
@@ -210,6 +232,7 @@
     store.set("key", k); store.set("geokey", g);
     if (window.ymaps && loadedKey && loadedKey !== k) setStatus("Ключи сохранены. Обновите страницу (F5), чтобы новый ключ карты начал действовать.");
     else setStatus("Ключи сохранены.");
+    sortPlacesOnce();
   });
 
   el.print.addEventListener("click", () => window.print());
@@ -637,6 +660,7 @@
     return null;
   }
   // строка текста → поля таблицы
+  const TYPE_RE = /^(г|гор|город|пгт|пос|п|посёлок|поселок|ст|ст-ца|станица|х|хут|хутор|а|аул|с|село)\.?\s+/i;
   function parseBulk(line){
     let addr = line, note = "";
     const m = line.match(/\s*(\||\/\/)\s*|\s+\/\s*(?=[^\d\s])/);  // | или // или « /» перед текстом (но не «д. 20/1»)
@@ -648,7 +672,30 @@
     if (t) note = note.replace(t.raw, " ");
     else { t = findTime(addr, "addr"); if (t) addr = addr.replace(t.raw, " "); }
     const clean = x => x.replace(/\s{2,}/g, " ").replace(/^[\s,;\/|]+|[\s,;\/|]+$/g, "").trim();
-    return { place:"", street:clean(addr), phone:phones.join(", "), time:t ? t.label : "", note:clean(note) };
+    // разложить адрес: регион, населённый пункт, улица, дом
+    const parts = clean(addr).split(",").map(x => x.trim()).filter(Boolean);
+    let region = "Адыгея", place = "", house = [];
+    if (parts.length && /адыге|край|област|респ/i.test(parts[0])) region = /адыге/i.test(parts.shift()) ? "Адыгея" : region;
+    // «ст. Ханская ул. Ленина 10» без запятой — отделить улицу
+    if (parts.length){
+      const sm = parts[0].match(/^(.+?)\s+((?:ул|улица|пер|переулок|пр-т|проспект|пр|пл|площадь|бул|бульвар|туп|тупик|проезд|мкр|снт)\.?\s.*)$/i);
+      if (sm && TYPE_RE.test(sm[1])) parts.splice(0, 1, sm[1], sm[2]);
+    }
+    if (parts.length && TYPE_RE.test(parts[0])) place = matchPlace(parts.shift());
+    else if (parts.length > 1){
+      // «Ханская, Ленина 10» — название без типа, если оно однозначно есть в справочнике
+      const mp = matchPlace(parts[0]);
+      if (mp !== parts[0].trim()) { place = mp; parts.shift(); }
+    }
+    while (parts.length && /^(д\.?|дом|кв\.?|корп\.?|к\.?|стр\.?)?\s*\d/i.test(parts[parts.length - 1])) house.unshift(parts.pop());
+    let street = parts.join(", ");
+    if (!house.length){
+      const hm = street.match(/^(.*\D)\s+(\d+[\wа-яё\/-]*)$/i);
+      if (hm){ street = hm[1].trim(); house = [hm[2]]; }
+    }
+    house = house.join(", ").replace(/^(д\.?|дом)\s*/i, "");
+    if (!place && !street && house) { street = house; house = ""; }
+    return { region, place, street, house, phone:phones.join(", "), time:t ? t.label : "", note:clean(note) };
   }
   // телефоны в комментарии — кликабельные (звонок с телефона)
   function noteHtml(note){
@@ -663,112 +710,236 @@
     return out + esc(note.slice(last));
   }
 
+  // ---------- справочник населённых пунктов Адыгеи ----------
+  const DISTRICTS = {
+    "М":["ГО Майкоп","Майкоп"], "МР":["Майкопский р-н","Майкопский район"], "Г":["Гиагинский р-н","Гиагинский район"],
+    "К":["Кошехабльский р-н","Кошехабльский район"], "КГ":["Красногвардейский р-н","Красногвардейский район"],
+    "Т":["Тахтамукайский р-н","Тахтамукайский район"], "ТЧ":["Теучежский р-н","Теучежский район"],
+    "Ш":["Шовгеновский р-н","Шовгеновский район"], "А":["ГО Адыгейск","Адыгейск"]
+  };
+  const FULLTYPE = { "г.":"город", "пгт":"посёлок городского типа", "пос.":"посёлок", "ст.":"станица", "х.":"хутор", "а.":"аул", "с.":"село" };
+  const CAT_SRC = {
+    "М":"г. Майкоп; ст. Ханская; х. Весёлый; х. Гавердовский; пос. Западный; х. Косинов; пос. Подгорный; пос. Родниковый; пос. Северный",
+    "МР":"пос. Тульский; пос. Каменномостский; пос. Краснооктябрьский; ст. Абадзехская; ст. Кужорская; х. Северо-Восточные Сады; пос. Табачный; ст. Курджипская; пос. Цветочный; ст. Даховская; пос. Совхозный; пос. Удобный; пос. Первомайский; пос. Тимирязева; х. Пролетарский; пос. Победа; х. Шунтук; с. Хамышки; х. Грозный; ст. Севастопольская; ст. Новосвободная; пос. Трёхречный; ст. Дагестанская; х. Советский; пос. Садовый; х. Садовый; х. Шаумян; х. Красная Улька; х. Причтовский; х. Гражданский; пос. Приречный; х. Весёлый; пос. Усть-Сахрай; х. Коминтерн; х. Вольный; х. Калинин; х. Ткачёв; х. 17 лет Октября; с. Новопрохладное; х. Дьяков; а. Мафэхабль; пос. Подгорный; пос. Гузерипль; пос. Мичурина; пос. Меркулаевка; ст. Безводная; х. Октябрьский; х. Красный Мост; пос. Спокойный; х. Кармир-Астх; пос. Мирный; с. Махошеполяна; пос. Хакодзь; пос. Никель",
+    "Г":"ст. Гиагинская; ст. Дондуковская; ст. Келермесская; с. Владимировское; х. Вольно-Весёлый; с. Георгиевское; пос. Гончарка; х. Днепровский; х. Екатериновский; х. Карцев; х. Козополянский; х. Колхозный; х. Красный Пахарь; х. Красный Хлебороб; х. Курский; пос. Лесной; х. Михельсоновский; х. Нечаевский; с. Нижний Айрюм; пос. Новый; с. Образцовое; х. Первомайский; х. Прогресс; х. Садовый; с. Сергиевское; х. Смольчев-Малиновский; х. Тамбовский; х. Фарсовский; х. Черёмушкин; х. Шишкинский",
+    "К":"а. Кошехабль; а. Блечепсин; с. Вольное; х. Дмитриевский; пос. Дружба; а. Егерухай; х. Игнатьевский; х. Казённо-Кужорский; х. Кармолино-Гидроицкий; пос. Комсомольский; х. Красный; х. Красный Фарс; пос. Майский; с. Натырбово; х. Новоалексеевский; х. Отрадный; пос. Плодопитомник; х. Политотдел; х. Соколов; а. Хачемзий; а. Ходзь; х. Чехрак; пос. Чехрак; х. Шелковников",
+    "КГ":"с. Красногвардейское; а. Адамий; с. Белое; а. Бжедугхабль; х. Богурсуков; с. Большесидоровское; с. Верхненазаровское; пос. Водный; а. Джамбечий; х. Догужиев; с. Еленовское; пос. Лесной; пос. Мирный; пос. Набережный; с. Новосевастопольское; х. Папенков; с. Преображенское; х. Пустоселов; с. Садовое; х. Саратовский; пос. Свободный; а. Уляп; а. Хатукай; х. Чумаков; с. Штурбино",
+    "Т":"пгт Энем; пгт Яблоновский; а. Тахтамукай; х. Апостолиди; а. Афипсип; пос. Дружный; а. Козет; х. Красноармейский; пос. Кубаньстрой; а. Натухай; а. Новая Адыгея; а. Новобжегокай; х. Новомогилевский; пос. Новый; х. Новый Сад; пос. Отрадный; а. Панахес; пос. Перекатный; пос. Прикубанский; а. Псейтук; а. Старобжегокай; х. Старомогилевский; х. Суповский; пос. Супс; а. Хаштук; х. Хомуты; ст. Шенджий; а. Шенджий",
+    "ТЧ":"а. Понежукай; пгт Тлюстенхабль; а. Ассоколай; а. Вочепший; а. Габукай; х. Городской; а. Джиджихабль; пос. Заря; х. Казазов; х. Колос; х. Кочкин; х. Красненский; с. Красное; а. Кунчукохабль; а. Начерезий; а. Нешукай; х. Нововочепший; х. Петров; а. Пчегатлукай; а. Пшикуйхабль; а. Тауйхабль; а. Тугургой; х. Чабанов; пос. Четук; х. Шевченко; х. Шундук",
+    "Ш":"а. Хакуринохабль; х. Весёлый; а. Джерокай; х. Дорошенко; х. Дукмасов; х. Задунаевский; пос. Зарево; а. Кабехабль; х. Касаткин; х. Келеметов; х. Киров; х. Лейбоабазов; пос. Лесхозный; х. Мамацев; а. Мамхег; х. Михайлов; х. Мокроназаров; х. Новорусов; х. Орехов; х. Пентюхов; х. Пикалин; а. Пшизов; а. Пшичо; х. Свободный Труд; х. Семено-Макаренский; х. Тихонов; пос. Ульский; а. Хатажукай; х. Хапачев; х. Чернышев; х. Чикалов",
+    "А":"г. Адыгейск; а. Гатлукай; х. Псекупс"
+  };
+  const MAYKOP_C = [44.6098, 40.1006];
+  const normName = x => x.toLowerCase().replace(/ё/g, "е").replace(TYPE_RE, "").replace(/\s*\(.*\)\s*$/, "").trim();
+  const CATALOG = (() => {
+    const list = [], seen = new Set();
+    Object.keys(CAT_SRC).forEach(d => CAT_SRC[d].split(";").map(x => x.trim()).forEach(full => {
+      const k = d + "|" + full; if (seen.has(k)) return; seen.add(k);
+      const sp = full.indexOf(" ");
+      list.push({ d, type:full.slice(0, sp), name:full.slice(sp + 1), full });
+    }));
+    const cnt = {}; list.forEach(e => cnt[e.full] = (cnt[e.full] || 0) + 1);
+    list.forEach(e => {
+      e.value = cnt[e.full] > 1 ? e.full + " (" + DISTRICTS[e.d][0] + ")" : e.full;
+      e.query = "Республика Адыгея, " + (DISTRICTS[e.d][1] && e.type !== "г." ? DISTRICTS[e.d][1] + ", " : "") + FULLTYPE[e.type] + " " + e.name;
+    });
+    return list;
+  })();
+  const CAT_BY_VALUE = new Map(CATALOG.map(e => [e.value, e]));
+  // «п. Краснооктябрьский» → «пос. Краснооктябрьский» (если название однозначное)
+  function matchPlace(text){
+    const n = normName(text);
+    const hits = CATALOG.filter(e => normName(e.name) === n);
+    return hits.length === 1 ? hits[0].value : text.trim();
+  }
+  // расстояния от Майкопа: координаты посёлков ищутся один раз и запоминаются в браузере
+  let placeCoords = {};
+  try { placeCoords = JSON.parse(store.get("placeCoords") || "{}"); } catch(e){ placeCoords = {}; }
+  function placeKm(e){ const c = placeCoords[e.value]; return c ? haversineM(MAYKOP_C, c) / 1000 : null; }
+  function fillPlaces(){
+    const dl = $("dlPlaces"); dl.innerHTML = "";
+    const known = CATALOG.filter(e => placeKm(e) !== null).sort((a, b) => placeKm(a) - placeKm(b));
+    const rest = CATALOG.filter(e => placeKm(e) === null);
+    known.concat(rest).forEach(e => {
+      const o = document.createElement("option"); o.value = e.value;
+      const k = placeKm(e);
+      o.label = (k !== null ? "≈ " + Math.round(k) + " км · " : "") + DISTRICTS[e.d][0];
+      dl.appendChild(o);
+    });
+    // свои, которых нет в справочнике (например, Краснодарский край)
+    hist("histPlaces").filter(v => !CAT_BY_VALUE.has(v)).forEach(v => { const o = document.createElement("option"); o.value = v; o.label = "введённые ранее"; dl.appendChild(o); });
+  }
+  let sortingPlaces = false;
+  async function sortPlacesOnce(){
+    if (sortingPlaces || !el.geokey.value.trim()) return;
+    const todo = CATALOG.filter(e => !placeCoords[e.value]);
+    if (!todo.length){ $("placeHint").textContent = ""; return; }
+    sortingPlaces = true;
+    try {
+      await runPool(todo.map(e => async () => {
+        try { const g = await geocode(e.query); if (g) placeCoords[e.value] = g.coords; } catch(err){}
+      }), 3, (d, n) => { $("placeHint").textContent = "Готовлю список населённых пунктов по удалённости от Майкопа (только в первый раз): " + d + " из " + n + "…"; });
+      store.set("placeCoords", JSON.stringify(placeCoords));
+    } finally { sortingPlaces = false; $("placeHint").textContent = ""; fillPlaces(); }
+  }
+
   // ---------- таблица адресов ----------
   const FIELDS = [
-    ["place",  "Посёлок / город",       "f-place"],
-    ["street", "Улица, дом, кв.",       "f-street"],
-    ["phone",  "Телефон",               "f-phone"],
-    ["time",   "Время: 9-30, до 11-00", "f-time"],
-    ["note",   "Комментарий",           "f-note"]
+    ["region", "Регион",            "f-region"],
+    ["place",  "Населённый пункт",  "f-place"],
+    ["street", "Улица",             "f-street"],
+    ["house",  "Дом, кв.",          "f-house"],
+    ["time",   "",                  "f-time"],
+    ["phone",  "Телефон",           "f-phone"],
+    ["note",   "Комментарий",       "f-note"]
   ];
+  const TIMES = (() => { const a = []; for (let m = 7 * 60; m <= 19 * 60; m += 30) a.push(Math.floor(m / 60) + ":" + String(m % 60).padStart(2, "0")); return a; })();
   const rowsBox = $("rows");
-  const blankRow = place => ({ place:place || "", street:"", phone:"", time:"", note:"" });
-  const filled = r => !!(r.place.trim() || r.street.trim());
+  const blankRow = (region, place) => ({ region:region || "Адыгея", place:place || "", street:"", house:"", time:"", phone:"", note:"" });
+  const filled = r => !!((r.place || "").trim() || (r.street || "").trim());
   let rows = [];
   function saveRows(){ store.set("rows", JSON.stringify(rows)); updateCount(); }
   function updateCount(){ const n = rows.filter(filled).length; $("rowCount").textContent = n ? "— " + n : ""; }
-  function markTime(inp){
-    const v = inp.value.trim(), t = findTime(v, "field");
-    inp.classList.toggle("bad", !!v && !t);
-    inp.classList.toggle("ok", !!t);
-    inp.title = t ? "Приоритет: " + t.label + " — заказ пойдёт первым" : (v ? "Не понял время. Пишите, например: 9-30 или до 11-00" : "");
-  }
+  function markTime(sel){ sel.classList.toggle("ok", !!sel.value); sel.title = sel.value ? "Срочный: поедет первым" : "Без времени"; }
   function makeRow(r, idx){
     const d = document.createElement("div"); d.className = "arow";
     const num = document.createElement("span"); num.className = "num"; num.textContent = idx + 1; d.appendChild(num);
     FIELDS.forEach(([f, ph, cls]) => {
-      const inp = document.createElement("input");
-      inp.className = cls; inp.placeholder = ph; inp.value = r[f] || ""; inp.autocomplete = "off";
-      if (f === "place") inp.setAttribute("list", "dlPlaces");
-      if (f === "street") inp.setAttribute("list", "dlStreets");
-      if (f === "phone"){ inp.type = "tel"; inp.inputMode = "tel"; }
-      inp.addEventListener("input", () => { r[f] = inp.value; saveRows(); if (f === "time") markTime(inp); });
+      let inp;
+      if (f === "time"){
+        inp = document.createElement("select");
+        const opts = ["", ...TIMES];
+        if (r.time && !opts.includes(r.time)) opts.splice(1, 0, r.time);
+        opts.forEach(v => { const o = document.createElement("option"); o.value = v; o.textContent = v || "время —"; inp.appendChild(o); });
+        inp.value = r.time || "";
+        inp.addEventListener("change", () => { r.time = inp.value; saveRows(); markTime(inp); });
+        markTime(inp);
+      } else {
+        inp = document.createElement("input");
+        inp.placeholder = ph; inp.value = r[f] || ""; inp.autocomplete = "off";
+        if (f === "region") inp.setAttribute("list", "dlRegions");
+        if (f === "place") inp.setAttribute("list", "dlPlaces");
+        if (f === "street") inp.setAttribute("list", "dlStreets");
+        if (f === "phone"){ inp.type = "tel"; inp.inputMode = "tel"; }
+        inp.addEventListener("input", () => { r[f] = inp.value; saveRows(); });
+      }
+      inp.className = cls;
       inp.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); nextRow(idx); } });
-      if (f === "time") markTime(inp);
       d.appendChild(inp);
     });
     const del = document.createElement("button");
     del.type = "button"; del.className = "del"; del.textContent = "✕"; del.title = "Удалить строку";
-    del.addEventListener("click", () => { rows.splice(idx, 1); if (!rows.length) rows.push(blankRow("")); renderRows(); saveRows(); });
+    del.addEventListener("click", () => { rows.splice(idx, 1); if (!rows.length) rows.push(blankRow()); renderRows(); saveRows(); });
     d.appendChild(del);
     return d;
   }
   function renderRows(){ rowsBox.innerHTML = ""; rows.forEach((r, i) => rowsBox.appendChild(makeRow(r, i))); updateCount(); }
   function nextRow(idx){
-    if (idx === rows.length - 1){ rows.push(blankRow(rows[idx].place)); renderRows(); saveRows(); }
-    rowsBox.children[idx + 1].querySelector(".f-street").focus();
+    if (idx === rows.length - 1){ rows.push(blankRow(rows[idx].region, rows[idx].place)); renderRows(); saveRows(); }
+    const nr = rowsBox.children[idx + 1];
+    nr.querySelector(rows[idx + 1].place ? ".f-street" : ".f-place").focus();
   }
   $("addRow").addEventListener("click", () => {
     const last = rows[rows.length - 1];
     if (last && !filled(last)) { rowsBox.lastChild.querySelector(".f-place").focus(); return; }
-    rows.push(blankRow(last ? last.place : "")); renderRows(); saveRows();
+    rows.push(blankRow(last && last.region, last && last.place)); renderRows(); saveRows();
     rowsBox.lastChild.querySelector(last && last.place ? ".f-street" : ".f-place").focus();
   });
   $("clearRows").addEventListener("click", () => {
     if (!confirm("Очистить все адреса?")) return;
-    const pl = rows.length ? rows[rows.length - 1].place : "";
-    rows = [blankRow(pl)]; renderRows(); saveRows();
+    const last = rows[rows.length - 1] || {};
+    rows = [blankRow(last.region, last.place)]; renderRows(); saveRows();
   });
   $("bulkBtn").addEventListener("click", () => { const b = $("bulkBox"); b.hidden = !b.hidden; if (!b.hidden) $("bulk").focus(); });
   $("bulkAdd").addEventListener("click", () => {
     const add = $("bulk").value.split("\n").map(x => x.trim()).filter(Boolean).map(parseBulk).filter(filled);
-    rows = rows.filter(r => (r.place + r.street + r.phone + r.note + r.time).trim()).concat(add);
-    if (!rows.length) rows.push(blankRow(""));
+    rows = rows.filter(filled).concat(add);
+    if (!rows.length) rows.push(blankRow());
     renderRows(); saveRows();
     $("bulk").value = ""; $("bulkBox").hidden = true;
-    setStatus("Добавлено строк: " + add.length + ". Проверьте телефоны и время в таблице.");
+    setStatus("Добавлено строк: " + add.length + ". Проверьте населённые пункты, телефоны и время в таблице.");
   });
   el.sample.addEventListener("click", () => {
     rows = [
-      { place:"пос. Тульский", street:"", phone:"", time:"", note:"" },
-      { place:"ст. Ханская", street:"", phone:"8 918 000-00-00", time:"9-30", note:"пример срочного заказа" },
-      { place:"ст. Гиагинская", street:"", phone:"", time:"", note:"" },
-      { place:"пос. Каменномостский", street:"", phone:"", time:"", note:"стучать пока не откроют" },
-      { place:"ст. Абадзехская", street:"", phone:"", time:"", note:"" },
-      { place:"ст. Кужорская", street:"", phone:"", time:"", note:"" }
+      Object.assign(blankRow(), { place:"пос. Тульский" }),
+      Object.assign(blankRow(), { place:"ст. Ханская", time:"9:30", phone:"8 918 000-00-00", note:"пример срочного заказа" }),
+      Object.assign(blankRow(), { place:"ст. Гиагинская" }),
+      Object.assign(blankRow(), { place:"пос. Каменномостский", note:"стучать пока не откроют" }),
+      Object.assign(blankRow(), { place:"ст. Абадзехская" }),
+      Object.assign(blankRow(), { place:"ст. Кужорская" })
     ];
     renderRows(); saveRows();
   });
-  // подсказки: посёлки и улицы, которые уже вводились
+  // подсказки: улицы и свои населённые пункты, которые уже вводились
   function hist(key){ try { return JSON.parse(store.get(key) || "[]"); } catch(e){ return []; } }
-  function fillDatalists(){
-    const fill = (id, arr) => { const dl = $(id); dl.innerHTML = ""; arr.forEach(v => { const o = document.createElement("option"); o.value = v; dl.appendChild(o); }); };
-    fill("dlPlaces", hist("histPlaces")); fill("dlStreets", hist("histStreets"));
+  function fillStreets(){
+    const dl = $("dlStreets"); dl.innerHTML = "";
+    hist("histStreets").forEach(v => { const o = document.createElement("option"); o.value = v; dl.appendChild(o); });
   }
   function remember(){
     const add = (key, vals, max) => {
       const h = hist(key);
-      vals.forEach(v => { v = v.trim(); if (!v) return; const i = h.indexOf(v); if (i >= 0) h.splice(i, 1); h.unshift(v); });
+      vals.forEach(v => { v = (v || "").trim(); if (!v) return; const i = h.indexOf(v); if (i >= 0) h.splice(i, 1); h.unshift(v); });
       store.set(key, JSON.stringify(h.slice(0, max)));
     };
     add("histPlaces", rows.map(r => r.place), 60);
-    add("histStreets", rows.map(r => r.street.replace(/[\s,]*(д\.?|дом)?\s*\d[\s\S]*$/i, "")), 300);
-    fillDatalists();
+    add("histStreets", rows.map(r => r.street), 300);
+    fillStreets(); fillPlaces();
+  }
+  function rowLabel(r){
+    const reg = (r.region || "").trim();
+    return [/адыге/i.test(reg) ? "" : reg, (r.place || "").trim(), (r.street || "").trim(), (r.house || "").trim()].filter(Boolean).join(", ");
   }
   function rowQuery(r){
-    const q = [r.place.trim(), r.street.trim()].filter(Boolean).join(", ");
-    if (coordRe.test(q)) return q;
-    return /адыге|край|област|респ/i.test(q) ? q : "Республика Адыгея, " + q;
+    const street = [(r.street || "").trim(), (r.house || "").trim()].filter(Boolean).join(", ");
+    if (!r.place.trim() && coordRe.test(street)) return street;
+    const cat = CAT_BY_VALUE.get(r.place.trim());
+    const reg = (r.region || "").trim();
+    const regionQ = !reg || /адыге/i.test(reg) ? "Республика Адыгея" : reg;
+    const placeQ = cat ? cat.query.replace(/^Республика Адыгея, /, "") : r.place.trim();
+    return [regionQ, placeQ, street].filter(Boolean).join(", ");
   }
-  // загрузка сохранённой таблицы (или перенос старого списка)
+
+  // ---------- бланк для печати ----------
+  $("blankBtn").addEventListener("click", () => {
+    const w = window.open("", "_blank");
+    if (!w){ alert("Браузер заблокировал новое окно. Разрешите всплывающие окна для этого сайта."); return; }
+    let rowsHtml = "";
+    for (let i = 1; i <= 14; i++) rowsHtml += "<tr><td class='n'>" + i + "</td><td>Адыгея</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>";
+    w.document.write('<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Бланк заявок</title><style>' +
+      '@page{size:A4 landscape;margin:10mm}' +
+      'body{font:12px/1.3 Arial,sans-serif;color:#000;margin:0}' +
+      'h1{font-size:18px;margin:0 0 4px}' +
+      '.top{display:flex;gap:40px;margin:6px 0 6px;font-size:13px}' +
+      '.rules{font-size:11px;margin:0 0 6px;padding:5px 8px;border:1px solid #999;border-radius:4px}' +
+      'table{width:100%;border-collapse:collapse;table-layout:fixed}' +
+      'th{background:#eee;font-size:11.5px;padding:4px;border:1px solid #000;text-align:left}' +
+      'td{border:1px solid #000;height:10.5mm;padding:2px 4px;vertical-align:middle;font-size:12px;color:#555}' +
+      'td.n{text-align:center;color:#000}' +
+      '.btn{margin:8px 0;padding:8px 14px;font-size:14px}@media print{.btn{display:none}}' +
+      '</style></head><body>' +
+      '<button class="btn" onclick="window.print()">Распечатать</button>' +
+      '<h1>Заявки на выезд</h1>' +
+      '<div class="top"><span>Дата: ____________________</span><span>Диспетчер: ______________________________</span></div>' +
+      '<div class="rules"><b>Как заполнять:</b> пишите разборчиво, печатными буквами. Населённый пункт — с типом (пос., ст., х., а.). ' +
+      '<b>Время</b> — только если заказ срочный или к определённому часу (например: 8:00, 9:30, до 11:00). ' +
+      'Телефон — полностью, 11 цифр. В комментарии — всё важное для рабочего (стучать громко, собака во дворе и т.п.).</div>' +
+      '<table><colgroup><col style="width:7mm"><col style="width:20mm"><col style="width:42mm"><col style="width:42mm"><col style="width:20mm"><col style="width:20mm"><col style="width:36mm"><col></colgroup>' +
+      '<tr><th>№</th><th>Регион</th><th>Населённый пункт</th><th>Улица</th><th>Дом, кв.</th><th>Время</th><th>Телефон</th><th>Комментарий</th></tr>' +
+      rowsHtml + '</table></body></html>');
+    w.document.close();
+  });
+
+  // загрузка сохранённой таблицы (или перенос старых данных)
   try { rows = JSON.parse(store.get("rows") || "null"); } catch(e){ rows = null; }
   if (!Array.isArray(rows) || !rows.length){
     const old = store.get("addrs");
     rows = old ? old.split("\n").map(x => x.trim()).filter(Boolean).map(parseBulk).filter(filled) : [];
-    if (!rows.length) rows = [blankRow("")];
   }
-  rows = rows.map(r => Object.assign(blankRow(""), r));
-  renderRows(); fillDatalists();
+  rows = (rows || []).map(r => Object.assign(blankRow(), r));
+  if (!rows.length) rows = [blankRow()];
+  renderRows(); fillStreets(); fillPlaces();
+  setTimeout(sortPlacesOnce, 500);
 
   // ---------- главный запуск ----------
   el.go.addEventListener("click", async () => {
@@ -793,7 +964,7 @@
 
       points = []; const notFound = [];
       await runPool(items.map(({ r, idx }) => async () => {
-        const label = [r.place.trim(), r.street.trim()].filter(Boolean).join(", ");
+        const label = rowLabel(r);
         const t = findTime(r.time, "field");
         const base = { input:label, phone:r.phone.trim(), note:r.note.trim(), timeMin:t ? t.min : null, timeLabel:t ? t.label : "", row:idx };
         try {
