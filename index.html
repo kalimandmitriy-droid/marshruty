@@ -41,7 +41,9 @@
   #results{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}
   .card{background:var(--panel);border:1px solid var(--line);border-top:6px solid var(--c);border-radius:12px;padding:12px 14px;break-inside:avoid}
   .card-head{display:flex;gap:8px;align-items:center}
-  .card-head input{font-size:17px;font-weight:700;border:none;padding:2px 0;margin:0;background:transparent}
+  .card-head input{font-size:17px;font-weight:700;border:none;border-bottom:1px dashed var(--muted);border-radius:0;padding:2px 0;margin:0;background:transparent;flex:1}
+  .card-head input:focus{outline:none;border-bottom:2px solid var(--c)}
+  .card-head .pen{color:var(--muted);font-size:13px;white-space:nowrap;cursor:pointer}
   .sum{color:var(--muted);font-size:13px;margin:2px 0 8px}
   .card ol{margin:0;padding-left:22px}
   .card li{padding:6px 0;border-bottom:1px dashed var(--line)}
@@ -485,7 +487,7 @@
       const r = routes[w], col = COLORS[w % COLORS.length];
       const card = document.createElement("div");
       card.className = "card"; card.style.setProperty("--c", col.hex);
-      let h = '<div class="card-head"><input class="wname" value="' + esc(names[w]) + '" aria-label="Имя рабочего"></div>';
+      let h = '<div class="card-head"><input class="wname" value="' + esc(names[w]) + '" aria-label="Имя рабочего" placeholder="Имя рабочего"><span class="pen">✎ имя</span></div>';
       h += '<div class="sum">Адресов: ' + r.order.length + (r.order.length ? " · " + km(r.m) + " · ~" + dur(r.s) + " в пути" : "") + "</div><ol>";
       r.order.forEach((i, t) => {
         const p = points[i], leg = r.legs[t];
@@ -508,7 +510,12 @@
         if (r.approx) h += '<div class="note">Расстояния приблизительные: сервис расчёта по дорогам не ответил. Нажмите «Построить маршруты» ещё раз.</div>';
       }
       card.innerHTML = h;
-      card.querySelector(".wname").addEventListener("input", e => { names[w] = e.target.value || ("Рабочий " + (w + 1)); store.set("names", JSON.stringify(names)); });
+      const wn = card.querySelector(".wname");
+      card.querySelector(".pen").addEventListener("click", () => { wn.focus(); wn.select(); });
+      wn.addEventListener("input", e => { names[w] = e.target.value.trim() || ("Рабочий " + (w + 1)); store.set("names", JSON.stringify(names)); });
+      wn.addEventListener("keydown", e => { if (e.key === "Enter") wn.blur(); });
+      // после ввода имени обновить списки «Передать: …» и подписи на карте
+      wn.addEventListener("change", () => { renderCards(); try { renderMap(); } catch(err){} });
       const copyBtn = card.querySelector(".copy");
       if (copyBtn) copyBtn.addEventListener("click", async () => {
         const txt = messageText(w);
