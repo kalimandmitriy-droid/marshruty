@@ -47,6 +47,8 @@
   .card li{padding:6px 0;border-bottom:1px dashed var(--line)}
   .card li:last-child{border-bottom:none}
   .addr{font-weight:600}
+  .cmt{display:block;margin:3px 0 2px;padding:4px 8px;background:#fff4e2;border-left:3px solid #e89a2c;border-radius:4px;font-size:13.5px}
+  .cmt a{color:var(--accent);font-weight:700}
   .found{display:block;color:var(--muted);font-size:12.5px}
   .leg{white-space:nowrap;color:var(--accent);font-size:12.5px;font-weight:600}
   .move{width:auto;margin:4px 0 0;padding:3px 6px;font-size:12.5px}
@@ -91,7 +93,7 @@
       <input id="start" value="Майкоп, Республика Адыгея">
     </label>
     <label>Адреса — каждый с новой строки
-      <textarea id="addrs" placeholder="ст. Ханская, ул. Ленина, 10&#10;пос. Тульский, ул. Мира, 5&#10;ст. Гиагинская, ул. Красная, 120&#10;...&#10;&#10;Можно и координатами: 44.6091, 40.1006"></textarea>
+      <textarea id="addrs" placeholder="ст. Ханская, ул. Ленина, 10 | 8 918 123-45-67, стучать пока не откроют&#10;пос. Тульский, ул. Мира, 5 | после 14:00&#10;ст. Гиагинская, ул. Красная, 120&#10;...&#10;&#10;Комментарий пишите после знака | (вертикальная черта) или //&#10;Телефон можно писать и просто в конце строки — программа его отделит сама.&#10;Можно и координатами: 44.6091, 40.1006"></textarea>
     </label>
     <div class="row">
       <label class="narrow">Рабочих
@@ -460,7 +462,7 @@
   function messageText(w){
     const r = routes[w];
     const lines = [names[w] + " — адресов: " + r.order.length + ", около " + km(r.m) + " (" + dur(r.s) + " в пути)"];
-    r.order.forEach((i, t) => lines.push((t + 1) + ". " + points[i].input));
+    r.order.forEach((i, t) => lines.push((t + 1) + ". " + points[i].input + (points[i].note ? "\n   ❗ " + points[i].note : "")));
     if (el.ret.checked) lines.push("Затем — обратно: " + el.start.value.trim());
     lines.push("Маршрут: " + yandexLink(w));
     return lines.join("\n");
@@ -489,6 +491,7 @@
         const p = points[i], leg = r.legs[t];
         const flag = GOOD_PRECISION.includes(p.precision) ? "" : ' <span class="flag" title="Найден неточно">⚠</span>';
         h += '<li><span class="addr">' + esc(p.input) + "</span>" + flag +
+             (p.note ? '<span class="cmt">❗ ' + noteHtml(p.note) + "</span>" : "") +
              ' <span class="leg">+' + km(leg.m) + "</span>" +
              '<span class="found">' + esc(p.found) + "</span>";
         if (k > 1){
@@ -533,7 +536,7 @@
       }
       r.order.forEach((i, t) => {
         map.geoObjects.add(new ymaps.Placemark(points[i].coords,
-          { iconContent:String(t + 1), balloonContentHeader:esc(names[w]) + ", №" + (t + 1), balloonContentBody:esc(points[i].input) + "<br><small>" + esc(points[i].found) + "</small>" },
+          { iconContent:String(t + 1), balloonContentHeader:esc(names[w]) + ", №" + (t + 1), balloonContentBody:esc(points[i].input) + (points[i].note ? "<br><b>❗ " + noteHtml(points[i].note) + "</b>" : "") + "<br><small>" + esc(points[i].found) + "</small>" },
           { preset:"islands#" + col.preset + "StretchyIcon" }));
       });
     });
@@ -566,6 +569,34 @@
     return err;
   }
 
+  // ---------- адрес и комментарий в одной строке ----------
+  const phoneRe = /(?:\+7|\b8)[\s\-()]*\d{3}[\s\-()]*\d{3}[\s\-]*\d{2}[\s\-]*\d{2}\b/g;
+  function parseLine(line){
+    let addr = line, note = "";
+    const m = line.match(/\s*(\||\/\/)\s*/);
+    if (m){ addr = line.slice(0, m.index); note = line.slice(m.index + m[0].length); }
+    // телефоны, написанные прямо в адресе, уходят в комментарий
+    const phones = addr.match(phoneRe);
+    if (phones){
+      phones.forEach(ph => { addr = addr.replace(ph, " "); });
+      note = phones.map(x => x.trim()).join(", ") + (note ? ", " + note : "");
+    }
+    addr = addr.replace(/[\s,;]+$/, "").replace(/\s{2,}/g, " ").trim();
+    return { line, addr, note: note.trim() };
+  }
+  // телефоны в комментарии — кликабельные (звонок с телефона)
+  function noteHtml(note){
+    let out = "", last = 0;
+    note.replace(phoneRe, (ph, idx) => {
+      out += esc(note.slice(last, idx));
+      const digits = ph.replace(/\D/g, "").replace(/^8/, "7");
+      out += '<a href="tel:+' + digits + '">' + esc(ph.trim()) + "</a>";
+      last = idx + ph.length;
+      return ph;
+    });
+    return out + esc(note.slice(last));
+  }
+
   // ---------- главный запуск ----------
   el.go.addEventListener("click", async () => {
     const key = el.key.value.trim();
@@ -589,9 +620,11 @@
 
       points = []; const notFound = [];
       await runPool(lines.map(t => async () => {
+        const pl = parseLine(t);
+        if (!pl.addr){ notFound.push(t); return; }
         try {
-          const g = await geocode(t);
-          if (g) points.push(Object.assign({ input:t }, g)); else notFound.push(t);
+          const g = await geocode(pl.addr);
+          if (g) points.push(Object.assign({ input:pl.addr, note:pl.note, line:t }, g)); else notFound.push(t);
         } catch(e){
           const ge = geoError(e);
           if (ge.fatal) throw ge;
@@ -599,7 +632,7 @@
         }
       }), 4, (d, n) => setStatus("Ищу адреса на карте: " + d + " из " + n));
       // сохранить исходный порядок строк
-      points.sort((a, b) => lines.indexOf(a.input) - lines.indexOf(b.input));
+      points.sort((a, b) => lines.indexOf(a.line) - lines.indexOf(b.line));
       renderProblems(notFound);
       if (!points.length) throw new Error("Ни один адрес не найден на карте.");
 
