@@ -573,7 +573,7 @@
   const phoneRe = /(?:\+7|\b8)[\s\-()]*\d{3}[\s\-()]*\d{3}[\s\-]*\d{2}[\s\-]*\d{2}\b/g;
   function parseLine(line){
     let addr = line, note = "";
-    const m = line.match(/\s*(\||\/\/)\s*/);
+    const m = line.match(/\s*(\||\/\/)\s*|\s+\/\s*(?=[^\d\s])/);  // | или // или « /» перед текстом (но не «д. 20/1»)
     if (m){ addr = line.slice(0, m.index); note = line.slice(m.index + m[0].length); }
     // телефоны, написанные прямо в адресе, уходят в комментарий
     const phones = addr.match(phoneRe);
@@ -581,7 +581,7 @@
       phones.forEach(ph => { addr = addr.replace(ph, " "); });
       note = phones.map(x => x.trim()).join(", ") + (note ? ", " + note : "");
     }
-    addr = addr.replace(/[\s,;]+$/, "").replace(/\s{2,}/g, " ").trim();
+    addr = addr.replace(/[\s,;\/|]+$/, "").replace(/\s{2,}/g, " ").trim();
     return { line, addr, note: note.trim() };
   }
   // телефоны в комментарии — кликабельные (звонок с телефона)
