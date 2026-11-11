@@ -989,7 +989,7 @@
     const w = window.open("", "_blank");
     if (!w){ alert("Браузер заблокировал новое окно. Разрешите всплывающие окна для этого сайта."); return; }
     let rowsHtml = "";
-    for (let i = 1; i <= 14; i++) rowsHtml += "<tr><td class='n'>" + i + "</td><td>Адыгея</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>";
+    for (let i = 1; i <= 14; i++) rowsHtml += "<tr><td class='n'>" + i + "</td><td>Адыгея</td><td></td><td></td><td></td><td></td><td></td></tr>";
     w.document.write('<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Бланк заявок</title><style>' +
       '@page{size:A4 landscape;margin:10mm}' +
       'body{font:12px/1.3 Arial,sans-serif;color:#000;margin:0}' +
@@ -1005,8 +1005,8 @@
       '<button class="btn" onclick="window.print()">Распечатать</button>' +
       '<h1>Заявки на выезд</h1>' +
       '<div class="top"><span>Дата: ____________________</span><span>Диспетчер: ______________________________</span></div>' +
-      '<table><colgroup><col style="width:7mm"><col style="width:20mm"><col style="width:42mm"><col style="width:42mm"><col style="width:20mm"><col style="width:20mm"><col style="width:36mm"><col></colgroup>' +
-      '<tr><th>№</th><th>Регион</th><th>Населённый пункт</th><th>Улица</th><th>Дом, кв.</th><th>Время</th><th>Телефон</th><th>Комментарий</th></tr>' +
+      '<table><colgroup><col style="width:7mm"><col style="width:20mm"><col style="width:42mm"><col style="width:42mm"><col style="width:20mm"><col style="width:52mm"><col></colgroup>' +
+      '<tr><th>№</th><th>Регион</th><th>Населённый пункт</th><th>Улица</th><th>Дом, кв.</th><th>Телефон</th><th>Комментарий</th></tr>' +
       rowsHtml + '</table></body></html>');
     w.document.close();
   });
@@ -1046,7 +1046,7 @@
       points = []; const notFound = [];
       await runPool(items.map(({ r, idx }) => async () => {
         const label = rowLabel(r);
-        const t = findTime(r.time, "field");
+        const t = findTime(r.time, "field") || findTime(r.note, "note");
         const base = { input:label, phone:r.phone.trim(), note:r.note.trim(), timeMin:t ? t.min : null, timeLabel:t ? t.label : "", row:idx };
         try {
           const g = await geocode(rowQuery(r));
