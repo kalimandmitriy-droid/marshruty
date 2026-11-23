@@ -108,7 +108,7 @@
         <li>Укажите число рабочих и нажмите <b>«Построить маршруты»</b>. Адреса из оранжевого блока «Проверьте» поправьте.</li>
         <li>Каждому рабочему нажмите <b>«Скопировать для мессенджера»</b> и отправьте.</li>
       </ol>
-      Текст, распознанный с фото, — кнопка «Вставить списком». Пустой бланк для диспетчеров — кнопка «Бланк для печати».
+      Загрузите заполненный бланк или вставьте адреса списком. Пустой бланк для диспетчеров — кнопка «Бланк для печати».
     </div>
     <details id="keyHelp">
       <summary>Ключи Яндекс Карт (настраиваются один раз на каждом компьютере)</summary>
@@ -140,6 +140,7 @@
     <datalist id="dlRegions"><option value="Адыгея"></option><option value="Краснодарский край"></option></datalist>
     <div class="row" style="margin:6px 0 14px">
       <button type="button" id="addRow">+ Добавить адрес</button>
+      <button type="button" id="routeScan">Распознать фото или PDF</button>
       <button type="button" id="bulkBtn">Вставить списком</button>
       <button type="button" id="clearRows">Очистить всё</button>
       <button type="button" id="blankBtn">Бланк для печати</button>
@@ -926,6 +927,31 @@
     if (!confirm("Очистить все адреса?")) return;
     const last = rows[rows.length - 1] || {};
     rows = [blankRow(last.region, last.place)]; renderRows(); saveRows();
+  });
+  const officeOrigin = "https://yellowmankrd.ru";
+  let routeScanner;
+  $("routeScan").addEventListener("click", () => {
+    routeScanner = window.open(officeOrigin + "/route-ocr.html", "yellowmanRouteOcr", "popup,width=680,height=740");
+    if (!routeScanner) setStatus("Разрешите всплывающие окна для распознавания документов.", true);
+  });
+  window.addEventListener("message", event => {
+    if (!routeScanner || event.origin !== officeOrigin || event.source !== routeScanner) return;
+    const payload = event.data;
+    if (payload?.type !== "route-ocr-result" || !Array.isArray(payload.rows) || payload.rows.length > 300) return;
+    const added = payload.rows.filter(row => row && (row.place || row.street)).map(row => {
+      const result = blankRow(typeof row.region === "string" ? row.region.trim().slice(0, 300) : "");
+      for (const field of ["place","street","house","phone","time","note"]) {
+        if (typeof row[field] === "string") result[field] = row[field].slice(0, 300);
+      }
+      return result;
+    });
+    if (!added.length) return;
+    rows = rows.filter(filled).concat(added);
+    renderRows();
+    saveRows();
+    event.source.postMessage({type:"route-ocr-accepted"}, officeOrigin);
+    routeScanner = null;
+    setStatus("Добавлено заявок: " + added.length + ". Проверьте адреса, телефоны и время перед построением маршрута.");
   });
   $("bulkBtn").addEventListener("click", () => { const b = $("bulkBox"); b.hidden = !b.hidden; if (!b.hidden) $("bulk").focus(); });
   $("bulkAdd").addEventListener("click", () => {
