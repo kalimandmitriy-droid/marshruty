@@ -4,103 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Маршруты бригад</title>
-<style>
-  :root{
-    --bg:#f4f5f2; --panel:#ffffff; --ink:#1d2320; --muted:#6b736e; --line:#dfe3dc;
-    --accent:#1f6f50; --accent-ink:#ffffff; --warn:#a85b00; --warn-bg:#fff4e2; --bad:#b3261e;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-  header{padding:18px 16px 6px;max-width:1200px;margin:0 auto}
-  header h1{margin:0;font-size:22px}
-  header p{margin:2px 0 0;color:var(--muted)}
-  main{max-width:1200px;margin:0 auto;padding:10px 16px 40px;display:grid;gap:14px}
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
-  label{display:block;font-weight:600;font-size:13px;color:var(--muted);margin-bottom:10px}
-  input,textarea,select{width:100%;margin-top:4px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;color:var(--ink);background:#fff}
-  textarea{resize:vertical;min-height:180px}
-  .row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
-  .row > label{flex:1 1 160px}
-  .row > label.narrow{flex:0 1 110px}
-  .chk{display:flex;gap:6px;align-items:center;font-weight:500;color:var(--ink)}
-  .chk input{width:auto;margin:0}
-  button,.btn{display:inline-block;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);font:inherit;font-weight:600;cursor:pointer;text-decoration:none}
-  button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);padding:11px 18px}
-  button:disabled{opacity:.55;cursor:wait}
-  #status{margin-top:10px;color:var(--muted);min-height:1.4em}
-  #status.err{color:var(--bad);font-weight:600}
-  details{margin-bottom:12px}
-  summary{cursor:pointer;font-weight:600;color:var(--accent)}
-  details ol{margin:8px 0 0;padding-left:20px;color:var(--ink)}
-  .keyrow{display:flex;gap:8px;align-items:flex-end}
-  .keyrow label{flex:1;margin:0}
-  .addr-head{font-weight:600;font-size:13px;color:var(--muted);margin-bottom:2px}
-  .hint{font-size:12.5px;color:var(--muted);margin-bottom:8px}
-  .arow{display:grid;grid-template-columns:24px .7fr 1.65fr 1.2fr .5fr .75fr 1fr 1.2fr 30px;gap:6px;align-items:center;margin-bottom:6px}
-  .arow select{margin:0;padding:8px 6px}
-  .ahdr{display:grid;grid-template-columns:24px .7fr 1.65fr 1.2fr .5fr .75fr 1fr 1.2fr 30px;gap:6px;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:3px}
-  .ahdr span{padding-left:4px}
-  .arow input{margin:0;padding:8px 9px}
-  .arow .num{color:var(--muted);font-size:12.5px;text-align:right}
-  .arow .del{padding:6px 0;border-color:transparent;color:var(--muted);background:transparent}
-  .arow .del:hover{color:var(--bad)}
-  .arow input.bad{border-color:var(--bad);background:#fff5f5}
-  .arow .f-time.ok{border-color:#e89a2c;background:#fff8ee;font-weight:600}
-  .howto{background:#eef6f1;border:1px solid #cfe3d7;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:14px}
-  .howto b.t{display:block;font-size:15px;margin-bottom:4px;color:var(--accent)}
-  .howto ol{margin:0;padding-left:20px}
-  .howto li{margin:2px 0}
-  #bulkBox{margin-bottom:14px}
-  #bulkBox textarea{min-height:140px;margin-bottom:8px}
-  .tbadge{display:inline-block;background:#fde7e7;color:#b3261e;font-weight:700;font-size:12.5px;padding:1px 8px;border-radius:10px;margin-right:6px;vertical-align:1px}
-  .tel{display:inline-block;font-size:13.5px;font-weight:600;color:var(--accent);text-decoration:none;margin-top:3px}
-  .warn{color:var(--warn);font-size:13px;font-weight:600;margin:2px 0 8px}
-  @media (max-width:700px){
-    .ahdr{display:none}
-    .arow{grid-template-columns:22px 1fr 1fr 30px;grid-template-areas:"n rg p d" ". s h ." ". t ph ." ". c c .";padding-bottom:8px;border-bottom:1px dashed var(--line)}
-    .arow .num{grid-area:n} .arow .f-region{grid-area:rg} .arow .f-place{grid-area:p} .arow .f-street{grid-area:s} .arow .f-house{grid-area:h}
-    .arow .f-phone{grid-area:ph} .arow .f-time{grid-area:t} .arow .f-note{grid-area:c} .arow .del{grid-area:d}
-  }
-  #map{height:460px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#e9ece6}
-  #problems{background:var(--warn-bg);border:1px solid #f0d3a6;border-radius:12px;padding:12px 14px}
-  #problems h2{margin:0 0 6px;font-size:16px;color:var(--warn)}
-  #problems ul{margin:0;padding-left:18px}
-  #results{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}
-  .card{background:var(--panel);border:1px solid var(--line);border-top:6px solid var(--c);border-radius:12px;padding:12px 14px;break-inside:avoid}
-  .card-head{display:flex;gap:8px;align-items:center}
-  .card-head input{font-size:17px;font-weight:700;border:none;border-bottom:1px dashed var(--muted);border-radius:0;padding:2px 0;margin:0;background:transparent;flex:1}
-  .card-head input:focus{outline:none;border-bottom:2px solid var(--c)}
-  .card-head .pen{color:var(--muted);font-size:13px;white-space:nowrap;cursor:pointer}
-  .sum{color:var(--muted);font-size:13px;margin:2px 0 8px}
-  .card ol{margin:0;padding-left:22px}
-  .card li{padding:6px 0;border-bottom:1px dashed var(--line)}
-  .card li:last-child{border-bottom:none}
-  .addr{font-weight:600}
-  .cmt{display:block;margin:3px 0 2px;padding:4px 8px;background:#fff4e2;border-left:3px solid #e89a2c;border-radius:4px;font-size:13.5px}
-  .cmt a{color:var(--accent);font-weight:700}
-  .found{display:block;color:var(--muted);font-size:12.5px}
-  .leg{white-space:nowrap;color:var(--accent);font-size:12.5px;font-weight:600}
-  .move{width:auto;margin:4px 0 0;padding:3px 6px;font-size:12.5px}
-  .flag{color:var(--warn);font-weight:700}
-  .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-  .note{color:var(--muted);font-size:12.5px;margin-top:6px}
-  @media (max-width:600px){ #map{height:340px} #results{grid-template-columns:1fr} }
-  @media print{
-    header p,#setup,#map,#problems,.actions,.move{display:none!important}
-    body{background:#fff} .card{border:1px solid #999;border-top:6px solid var(--c);page-break-inside:avoid;margin-bottom:12px}
-    #results{display:block}
-  }
-</style>
+<meta name="theme-color" content="#090a12">
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <header>
   <h1>Маршруты бригад</h1>
-  <p>Адреса → поиск на карте → деление между рабочими → оптимальный порядок по дорогам → ссылка на маршрут</p>
+  <p>Соберите адреса и распределите маршруты между бригадами.</p>
 </header>
 <main>
   <section class="panel" id="setup">
-    <div class="howto">
-      <b class="t">Как пользоваться</b>
+    <details class="help howto">
+      <summary>Как пользоваться</summary>
       <ol>
         <li>Заполните таблицу. <b>Населённый пункт</b> выберите из списка: ближайшие к Майкопу стоят сверху, можно начать печатать название. Улицу и дом впишите.</li>
         <li><b>Enter</b> — новая строка, регион и населённый пункт подставятся сами.</li>
@@ -108,10 +23,10 @@
         <li>Укажите число рабочих и нажмите <b>«Построить маршруты»</b>. Адреса из оранжевого блока «Проверьте» поправьте.</li>
         <li>Каждому рабочему нажмите <b>«Скопировать для мессенджера»</b> и отправьте.</li>
       </ol>
-      Загрузите заполненный бланк или вставьте адреса списком. Пустой бланк для диспетчеров — кнопка «Бланк для печати».
-    </div>
-    <details id="keyHelp">
-      <summary>Ключи Яндекс Карт (настраиваются один раз на каждом компьютере)</summary>
+      <p>Загрузите заполненный бланк или вставьте адреса списком. Пустой бланк для диспетчеров — кнопка «Бланк для печати».</p>
+    </details>
+    <details class="help" id="keyHelp">
+      <summary>Ключи Яндекс Карт</summary>
       <ol>
         <li>Откройте <b>developer.tech.yandex.ru</b> и войдите с вашим Яндекс ID.</li>
         <li>Нажмите «Подключить API» и подключите <b>два продукта</b>: <b>«JavaScript API»</b> (карта и маршруты) и <b>«HTTP Геокодер»</b> (поиск адресов). У каждого будет свой ключ.</li>
@@ -128,28 +43,27 @@
       <button id="saveKey" type="button">Сохранить</button>
     </div>
     </details>
-    <div style="height:12px"></div>
-    <label>Точка старта (откуда выезжают рабочие)
+    <label class="start-field">Точка старта (откуда выезжают рабочие)
       <input id="start" value="Майкоп, Республика Адыгея">
     </label>
-    <div class="addr-head">Адреса <span id="rowCount"></span></div>
+    <h2 class="addr-head">Адреса <span id="rowCount"></span></h2>
     <div class="hint" id="placeHint"></div>
     <div class="ahdr"><span>№</span><span>Регион</span><span>Населённый пункт</span><span>Улица</span><span>Дом, кв.</span><span>Время</span><span>Телефон</span><span>Комментарий</span><span></span></div>
     <div id="rows"></div>
     <datalist id="dlPlaces"></datalist><datalist id="dlStreets"></datalist>
     <datalist id="dlRegions"><option value="Адыгея"></option><option value="Краснодарский край"></option></datalist>
-    <div class="row" style="margin:6px 0 14px">
+    <div class="row address-actions">
       <button type="button" id="addRow">+ Добавить адрес</button>
-      <button type="button" id="routeScan">Распознать фото или PDF</button>
+      <button type="button" id="routeScan" class="ocr-action">Распознать фото или PDF</button>
       <button type="button" id="bulkBtn">Вставить списком</button>
-      <button type="button" id="clearRows">Очистить всё</button>
+      <button type="button" id="clearRows" class="clear-action">Очистить всё</button>
       <button type="button" id="blankBtn">Бланк для печати</button>
     </div>
     <div id="bulkBox" hidden>
       <textarea id="bulk" placeholder="Вставьте текст — по одному адресу в строке (например, распознанный с фото). Телефоны и время программа найдёт сама, текст после знака | станет комментарием.&#10;&#10;п. Краснооктябрьский, ул. Советская, 49 | +7 928 472-77-80 до 11-00 стучать громко"></textarea>
       <button type="button" id="bulkAdd" class="primary">Добавить в таблицу</button>
     </div>
-    <div class="row">
+    <div class="row route-settings">
       <label class="narrow">Рабочих
         <input id="workers" type="number" min="1" max="8" value="2">
       </label>
@@ -161,7 +75,7 @@
       </label>
       <label>Порядок объезда
         <select id="mode">
-          <option value="opt">Оптимальный маршрут (ближайший следующий)</option>
+          <option value="opt">Оптимальный маршрут</option>
           <option value="dist">По удалённости от старта</option>
         </select>
       </label>
@@ -172,7 +86,7 @@
       <button id="sample" type="button">Пример</button>
       <button id="print" type="button">Печать</button>
     </div>
-    <div id="status"></div>
+    <div id="status" role="status"></div>
   </section>
 
   <section id="problems" hidden></section>
@@ -864,7 +778,7 @@
     ["place",  "Населённый пункт",  "f-place"],
     ["street", "Улица",             "f-street"],
     ["house",  "Дом, кв.",          "f-house"],
-    ["time",   "",                  "f-time"],
+    ["time",   "Время",             "f-time"],
     ["phone",  "Телефон",           "f-phone"],
     ["note",   "Комментарий",       "f-note"]
   ];
@@ -902,11 +816,18 @@
       }
       inp.className = cls;
       inp.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); nextRow(idx); } });
-      d.appendChild(inp);
+      const label = document.createElement("label");
+      label.className = "address-field field-" + f;
+      const caption = document.createElement("span");
+      caption.className = "field-caption";
+      caption.textContent = ph;
+      label.append(caption, inp);
+      d.appendChild(label);
     });
     bindStreetList(r, d.querySelector(".f-street"));
     const del = document.createElement("button");
     del.type = "button"; del.className = "del"; del.textContent = "✕"; del.title = "Удалить строку";
+    del.setAttribute("aria-label", "Удалить адрес " + (idx + 1));
     del.addEventListener("click", () => { rows.splice(idx, 1); if (!rows.length) rows.push(blankRow()); renderRows(); saveRows(); });
     d.appendChild(del);
     return d;
